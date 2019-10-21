@@ -4,18 +4,18 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 
 public class TherobotAutonomous extends LinearOpMode {
 
-    public TherobotBase therobotBase;
+    public TherobotBase therobot;
 
     @Override
     public void runOpMode() throws InterruptedException {
-        therobotBase = new TherobotBase(this);
+        therobot = new TherobotBase(this);
         waitForStart();
         // Right now this is just a test class for mecanum driving so I can refine the mecanum drive ASAP.
-        therobotBase.imuTurn(90);
-        therobotBase.encoderDriveMecanum(true, 1, 24, 0);
-        therobotBase.encoderDriveMecanum(true, 1, 0, 24);
-        therobotBase.encoderDriveMecanum(true, 1, -48, 0);
-        therobotBase.encoderDriveMecanum(true, 0.5, 24, -24);
+        therobot.imuTurn(90);
+        therobot.encoderDriveMecanum(true, 1, 24, 0);
+        therobot.encoderDriveMecanum(true, 1, 0, 24);
+        therobot.encoderDriveMecanum(true, 1, -48, 0);
+        therobot.encoderDriveMecanum(true, 0.5, 24, -24);
     }
 
     // See how short that was? :D
