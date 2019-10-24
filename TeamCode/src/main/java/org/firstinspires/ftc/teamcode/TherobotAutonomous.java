@@ -11,11 +11,15 @@ public class TherobotAutonomous extends LinearOpMode {
         therobot = new TherobotBase(this);
         waitForStart();
         // Right now this is just a test class for mecanum driving so I can refine the mecanum drive ASAP.
+        therobot.encoderDriveMecanum(true, 1, 0, 6);
+        therobot.encoderDriveMecanum(true, 1, 6, 6);
+        therobot.encoderDriveMecanum(true, 1, 6, 0);
+        therobot.encoderDriveMecanum(true, 0.7, 6, -6);
+        therobot.encoderDriveMecanum(true, 0.7, 0, -6);
+        therobot.encoderDriveMecanum(true, 1, -6, -6);
+        therobot.encoderDriveMecanum(true, 1, -6, 0);
+        therobot.encoderDriveMecanum(true, 1, -6, 6);
         therobot.imuTurn(90);
-        therobot.encoderDriveMecanum(true, 1, 24, 0);
-        therobot.encoderDriveMecanum(true, 1, 0, 24);
-        therobot.encoderDriveMecanum(true, 1, -48, 0);
-        therobot.encoderDriveMecanum(true, 0.5, 24, -24);
     }
 
     // See how short that was? :D

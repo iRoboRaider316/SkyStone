@@ -45,7 +45,7 @@ public class TherobotBase extends LinearOpMode {
     // <INSERT CONSTANT DECLARATIONS HERE>
     int ENCODER_CPR = 288;
     double GEAR_REDUCTION = 1;
-    double WHEEL_CURCUMFERENCE = 7.02 * Math.PI;
+    double WHEEL_CURCUMFERENCE = 8 * Math.PI;
     double COUNTS_PER_INCH = ENCODER_CPR * GEAR_REDUCTION / WHEEL_CURCUMFERENCE;
 
     public TherobotBase(OpMode opMode) {
@@ -113,30 +113,28 @@ public class TherobotBase extends LinearOpMode {
     void encoderDriveMecanum(boolean isTest, double baseMotorPower, double distanceInInchesForward, double distancesInInchesStrafing){ //Distance in inches, x and y as direction values, both between 1- and 1
         // DOING EPIC MATH (Based on Jamari's TeleOp Driving code from last year)
         double distanceInInches = Math.hypot(distancesInInchesStrafing, distanceInInchesForward);
-        double angleDirection = Math.atan2(distanceInInchesForward, distancesInInchesStrafing);
+        double angleDirection = Math.atan2(distanceInInchesForward, distancesInInchesStrafing); // May need to catch an ArithmeticException here
         double xTargetDirection = Math.cos(angleDirection);
         double yTargetDirection = Math.sin(angleDirection);
 
         double drivingPower = baseMotorPower * Math.hypot(xTargetDirection, yTargetDirection);
-        double strafingPower = xTargetDirection;
-        double robotTrajectory = angleDirection + (Math.PI/4);
+        double wheelTrajectory = angleDirection - (Math.PI/4);
 
         // The mathematics above might be epic, but are they how we WANT them to be?
         while(isTest && !gamepad1.a) {
             telemetry.addData("distanceInInches", distanceInInches);
             telemetry.addData("angleHeading", Math.toDegrees(angleDirection));
             telemetry.addData("drivingPower", drivingPower);
-            telemetry.addData("strafingPower", strafingPower);
-            telemetry.addData("robotTrajectory", Math.toDegrees(robotTrajectory));
+            telemetry.addData("robotTrajectory", Math.toDegrees(wheelTrajectory));
             telemetry.addData("Looks Good?", "Press A if it's so before we crash and burn");
             telemetry.update();
         }
 
         // Determining speeds for each drive motor
-        double desiredSpeedLF = (((drivingPower * (Math.sin(robotTrajectory)) + strafingPower)));
-        double desiredSpeedLB = (((drivingPower * (Math.cos(robotTrajectory))) + strafingPower));
-        double desiredSpeedRF = ((-(drivingPower * (Math.cos(robotTrajectory)) + strafingPower)));
-        double desiredSpeedRB = ((-(drivingPower * (Math.sin(robotTrajectory))) + strafingPower));
+        double desiredSpeedLF = (drivingPower * (Math.cos(wheelTrajectory)));
+        double desiredSpeedLB = (drivingPower * (Math.sin(wheelTrajectory)));
+        double desiredSpeedRF = -(drivingPower * (Math.sin(wheelTrajectory)));
+        double desiredSpeedRB = -(drivingPower * (Math.cos(wheelTrajectory)));
 
         // Determining targets for each drive motor
         int newTargetLF = motorDriveLF.getCurrentPosition() + (int)(distanceInInches * desiredSpeedLF * COUNTS_PER_INCH);
@@ -230,6 +228,9 @@ public class TherobotBase extends LinearOpMode {
     // <INSERT FOUNDATION SCORING METHOD HERE>
 
     // <INSERT STONE COLLECTION AND SCORING METHOD HERE>
+    public void scoreStones() {
+        encoderDriveMecanum(false, 1, 0, -12); // Strafe out of the
+    }
 
     // <INSERT SKYBRIDGE METHOD HERE>
 
