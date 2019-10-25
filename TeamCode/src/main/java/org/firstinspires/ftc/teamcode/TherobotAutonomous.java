@@ -10,6 +10,7 @@ public class TherobotAutonomous extends LinearOpMode {
     public void runOpMode() throws InterruptedException {
         therobot = new TherobotBase(this);
         waitForStart();
+        therobot.timerOpMode.reset();
         // Right now this is just a test class for mecanum driving so I can refine the mecanum drive ASAP.
         therobot.encoderDriveMecanum(true, 1, 0, 6);
         therobot.encoderDriveMecanum(true, 1, 6, 6);

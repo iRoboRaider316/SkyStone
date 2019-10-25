@@ -12,6 +12,11 @@ public class TherobotTeleop extends OpMode {
     }
 
     @Override
+    public void start() {
+        therobot.timerOpMode.reset();
+    }
+
+    @Override
     public void loop() {
 
     }

@@ -9,6 +9,7 @@ import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.Gamepad;
 import com.qualcomm.robotcore.hardware.HardwareMap;
+import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.Range;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
@@ -35,8 +36,12 @@ public class TherobotBase extends LinearOpMode {
     DcMotor motorDriveLB;
     DcMotor motorDriveRF;
     DcMotor motorDriveRB;
+    DcMotor motorCollectionL;
+    DcMotor motorCollectionR;
     BNO055IMU imu;                  // IMU Gyro itself
     Orientation angles;             // IMU Gyro's Orienting
+
+    ElapsedTime timerOpMode;
 
     // VARIABLES
     // <INSERT VARIABLE DECLARATIONS HERE>
@@ -73,6 +78,9 @@ public class TherobotBase extends LinearOpMode {
         motorDriveRF.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         motorDriveRB.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
 
+        motorCollectionL = hardwareMap.dcMotor.get("motorCollectionL");
+        motorCollectionR = hardwareMap.dcMotor.get("motorCollectionR");
+
         BNO055IMU.Parameters parameters_IMU = new BNO055IMU.Parameters();
         parameters_IMU.angleUnit = BNO055IMU.AngleUnit.RADIANS;
         parameters_IMU.accelUnit = BNO055IMU.AccelUnit.METERS_PERSEC_PERSEC;
@@ -88,19 +96,24 @@ public class TherobotBase extends LinearOpMode {
     @Override
     public void runOpMode() throws InterruptedException {}
 
-    private void setDrivePower(double motorPower) {
+    public void setDrivePower(double motorPower) {
         setDrivePowerSides(motorPower, motorPower);
     }
 
-    private void setDrivePowerSides(double motorPowerL, double motorPowerR) {
+    public void setDrivePowerSides(double motorPowerL, double motorPowerR) {
         setDrivePowerMotors(motorPowerL, motorPowerL, motorPowerR, motorPowerR);
     }
 
-    private void setDrivePowerMotors(double motorPowerLF, double motorPowerLB, double motorPowerRF, double motorPowerRB) {
+    public void setDrivePowerMotors(double motorPowerLF, double motorPowerLB, double motorPowerRF, double motorPowerRB) {
         motorDriveLF.setPower(motorPowerLF);
         motorDriveLB.setPower(motorPowerLB);
         motorDriveRF.setPower(motorPowerRF);
         motorDriveRB.setPower(motorPowerRB);
+    }
+
+    public void setCollectionPower(double power) {
+        motorCollectionL.setPower(power);
+        motorCollectionR.setPower(-power);
     }
 
 
@@ -227,9 +240,34 @@ public class TherobotBase extends LinearOpMode {
 
     // <INSERT FOUNDATION SCORING METHOD HERE>
 
-    // <INSERT STONE COLLECTION AND SCORING METHOD HERE>
-    public void scoreStones() {
-        encoderDriveMecanum(false, 1, 0, -12); // Strafe out of the
+    public void driveToQuarryAndScoreStonesOnFoundation() {
+        encoderDriveMecanum(false, 1, 0, -24); // Strafe left of the foundation
+        encoderDriveMecanum(false, 1, 24, -24);
+        encoderDriveMecanum(false, 1, 0, -24);
+        imuTurn(135);
+        setCollectionPower(1);
+        encoderDriveMecanum(false, 0.7, -16, 0);
+        encoderDriveMecanum(false, 0.7, 16, 0);
+        setCollectionPower(0);
+        imuTurn(45);
+        encoderDriveMecanum(false, 1, 36, 0);
+        encoderDriveMecanum(false, 0.7, 0, 12);
+        // Scoring Goes Here
+        if(30 - timerOpMode.seconds() > 12) {
+            encoderDriveMecanum(false, 0.7, 0, -12);
+            encoderDriveMecanum(false, 1, -36, 0);
+            imuTurn(135);
+            setCollectionPower(1);
+            encoderDriveMecanum(false, 0.7, -16, 0);
+            encoderDriveMecanum(false, 0.7, 16, 0);
+            setCollectionPower(0);
+            imuTurn(45);
+            encoderDriveMecanum(false, 1, 36, 0);
+            encoderDriveMecanum(false, 0.7, 0, 12);
+            // Scoring Goes Here
+        }
+        encoderDriveMecanum(false, 0.7, 0, -12);
+        encoderDriveMecanum(false, 1, -24, 0);
     }
 
     // <INSERT SKYBRIDGE METHOD HERE>
