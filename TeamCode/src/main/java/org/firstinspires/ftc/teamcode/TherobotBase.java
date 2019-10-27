@@ -19,7 +19,7 @@ import org.firstinspires.ftc.robotcore.external.navigation.AxesReference;
 import org.firstinspires.ftc.robotcore.external.navigation.Orientation;
 
 // Just here so we can access all the OpMode-exclusive methods
-@Autonomous(name="If you're reading this, you're in trouble", group = "LinearOpMode")
+@Autonomous(name="This is broken.", group = "LinearOpMode")
 @Disabled
 // Why did I call the robot Therobot? Because it's "The robot". Hopefully we get a better name for League Meet 2...
 public class TherobotBase extends LinearOpMode {
@@ -38,6 +38,8 @@ public class TherobotBase extends LinearOpMode {
     DcMotor motorDriveRB;
     DcMotor motorCollectionL;
     DcMotor motorCollectionR;
+    DcMotor motorLiftT;
+    DcMotor motorLiftB;
     BNO055IMU imu;                  // IMU Gyro itself
     Orientation angles;             // IMU Gyro's Orienting
 
@@ -81,6 +83,11 @@ public class TherobotBase extends LinearOpMode {
         motorCollectionL = hardwareMap.dcMotor.get("motorCollectionL");
         motorCollectionR = hardwareMap.dcMotor.get("motorCollectionR");
 
+        motorLiftT=hardwareMap.dcMotor.get("motorLiftT");
+        motorLiftB=hardwareMap.dcMotor.get("motorLiftB");
+        motorLiftB.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        motorLiftB.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+
         BNO055IMU.Parameters parameters_IMU = new BNO055IMU.Parameters();
         parameters_IMU.angleUnit = BNO055IMU.AngleUnit.RADIANS;
         parameters_IMU.accelUnit = BNO055IMU.AccelUnit.METERS_PERSEC_PERSEC;
@@ -88,8 +95,10 @@ public class TherobotBase extends LinearOpMode {
         parameters_IMU.loggingEnabled = true;
         parameters_IMU.loggingTag = "IMU";
         parameters_IMU.accelerationIntegrationAlgorithm = new JustLoggingAccelerationIntegrator();
-        imu = hardwareMap.get(BNO055IMU.class, "imu2");
+        imu = hardwareMap.get(BNO055IMU.class, "imu");
         imu.initialize(parameters_IMU);
+
+        timerOpMode = new ElapsedTime();
     }
 
     // Just here to make the code happy
@@ -220,22 +229,24 @@ public class TherobotBase extends LinearOpMode {
      * complicated at the same time. Enjoy.*/
     public void imuTurn(double degreesToTurn) {
         angles = imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
-        double currentHeading = angles.firstAngle;
+        double currentHeading = angles.firstAngle + 180;
         double targetHeading = degreesToTurn + currentHeading;
+
+        while(targetHeading > 360) targetHeading -= 360;
 
         while (Math.abs(degreesToTurn) > 2) {
             angles = imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
-            currentHeading = angles.firstAngle;
+            currentHeading = angles.firstAngle + 180;
             degreesToTurn = targetHeading - currentHeading;
 
             double power = Range.clip(Math.signum(degreesToTurn) * (0.25 + (Math.abs(degreesToTurn) / 360)), -1, 1);
             setDrivePowerSides(power, -power);
+
             telemetry.addData("DegreesToTurn", degreesToTurn);
             telemetry.addData("Target", targetHeading);
             telemetry.addData("Current", currentHeading);
             telemetry.update();
         }
-        setDrivePower(0);
     }
 
     // <INSERT FOUNDATION SCORING METHOD HERE>
