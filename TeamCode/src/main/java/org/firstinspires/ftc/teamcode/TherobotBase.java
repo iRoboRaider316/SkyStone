@@ -9,6 +9,7 @@ import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.Gamepad;
 import com.qualcomm.robotcore.hardware.HardwareMap;
+import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.Range;
 
@@ -40,6 +41,8 @@ public class TherobotBase extends LinearOpMode {
     DcMotor motorCollectionR;
     DcMotor motorLiftT;
     DcMotor motorLiftB;
+    Servo servoClaw;
+    Servo servoGrabberSwivel;
     BNO055IMU imu;                  // IMU Gyro itself
     Orientation angles;             // IMU Gyro's Orienting
 
@@ -87,6 +90,9 @@ public class TherobotBase extends LinearOpMode {
         motorLiftB=hardwareMap.dcMotor.get("motorLiftB");
         motorLiftB.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         motorLiftB.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+
+        servoClaw = hardwareMap.servo.get("servoClaw");
+        servoGrabberSwivel = hardwareMap.servo.get("servoGrabberSwivel");
 
         BNO055IMU.Parameters parameters_IMU = new BNO055IMU.Parameters();
         parameters_IMU.angleUnit = BNO055IMU.AngleUnit.RADIANS;
