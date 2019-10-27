@@ -9,6 +9,8 @@ import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.Gamepad;
 import com.qualcomm.robotcore.hardware.HardwareMap;
+import com.qualcomm.robotcore.hardware.Servo;
+import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.Range;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
@@ -18,7 +20,7 @@ import org.firstinspires.ftc.robotcore.external.navigation.AxesReference;
 import org.firstinspires.ftc.robotcore.external.navigation.Orientation;
 
 // Just here so we can access all the OpMode-exclusive methods
-@Autonomous(name="If you're reading this, you're in trouble", group = "LinearOpMode")
+@Autonomous(name="This is broken.", group = "LinearOpMode")
 @Disabled
 // Why did I call the robot Therobot? Because it's "The robot". Hopefully we get a better name for League Meet 2...
 public class TherobotBase extends LinearOpMode {
@@ -35,8 +37,16 @@ public class TherobotBase extends LinearOpMode {
     DcMotor motorDriveLB;
     DcMotor motorDriveRF;
     DcMotor motorDriveRB;
+    DcMotor motorCollectionL;
+    DcMotor motorCollectionR;
+    DcMotor motorLiftT;
+    DcMotor motorLiftB;
+    Servo servoClaw;
+    Servo servoGrabberSwivel;
     BNO055IMU imu;                  // IMU Gyro itself
     Orientation angles;             // IMU Gyro's Orienting
+
+    ElapsedTime timerOpMode;
 
     // VARIABLES
     // <INSERT VARIABLE DECLARATIONS HERE>
@@ -45,7 +55,7 @@ public class TherobotBase extends LinearOpMode {
     // <INSERT CONSTANT DECLARATIONS HERE>
     int ENCODER_CPR = 288;
     double GEAR_REDUCTION = 1;
-    double WHEEL_CURCUMFERENCE = 7.02 * Math.PI;
+    double WHEEL_CURCUMFERENCE = 8 * Math.PI;
     double COUNTS_PER_INCH = ENCODER_CPR * GEAR_REDUCTION / WHEEL_CURCUMFERENCE;
 
     public TherobotBase(OpMode opMode) {
@@ -73,6 +83,17 @@ public class TherobotBase extends LinearOpMode {
         motorDriveRF.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         motorDriveRB.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
 
+        motorCollectionL = hardwareMap.dcMotor.get("motorCollectionL");
+        motorCollectionR = hardwareMap.dcMotor.get("motorCollectionR");
+
+        motorLiftT=hardwareMap.dcMotor.get("motorLiftT");
+        motorLiftB=hardwareMap.dcMotor.get("motorLiftB");
+        motorLiftB.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        motorLiftB.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+
+        servoClaw = hardwareMap.servo.get("servoClaw");
+        servoGrabberSwivel = hardwareMap.servo.get("servoGrabberSwivel");
+
         BNO055IMU.Parameters parameters_IMU = new BNO055IMU.Parameters();
         parameters_IMU.angleUnit = BNO055IMU.AngleUnit.RADIANS;
         parameters_IMU.accelUnit = BNO055IMU.AccelUnit.METERS_PERSEC_PERSEC;
@@ -80,27 +101,34 @@ public class TherobotBase extends LinearOpMode {
         parameters_IMU.loggingEnabled = true;
         parameters_IMU.loggingTag = "IMU";
         parameters_IMU.accelerationIntegrationAlgorithm = new JustLoggingAccelerationIntegrator();
-        imu = hardwareMap.get(BNO055IMU.class, "imu2");
+        imu = hardwareMap.get(BNO055IMU.class, "imu");
         imu.initialize(parameters_IMU);
+
+        timerOpMode = new ElapsedTime();
     }
 
     // Just here to make the code happy
     @Override
     public void runOpMode() throws InterruptedException {}
 
-    private void setDrivePower(double motorPower) {
+    public void setDrivePower(double motorPower) {
         setDrivePowerSides(motorPower, motorPower);
     }
 
-    private void setDrivePowerSides(double motorPowerL, double motorPowerR) {
+    public void setDrivePowerSides(double motorPowerL, double motorPowerR) {
         setDrivePowerMotors(motorPowerL, motorPowerL, motorPowerR, motorPowerR);
     }
 
-    private void setDrivePowerMotors(double motorPowerLF, double motorPowerLB, double motorPowerRF, double motorPowerRB) {
+    public void setDrivePowerMotors(double motorPowerLF, double motorPowerLB, double motorPowerRF, double motorPowerRB) {
         motorDriveLF.setPower(motorPowerLF);
         motorDriveLB.setPower(motorPowerLB);
         motorDriveRF.setPower(motorPowerRF);
         motorDriveRB.setPower(motorPowerRB);
+    }
+
+    public void setCollectionPower(double power) {
+        motorCollectionL.setPower(power);
+        motorCollectionR.setPower(-power);
     }
 
 
@@ -113,30 +141,28 @@ public class TherobotBase extends LinearOpMode {
     void encoderDriveMecanum(boolean isTest, double baseMotorPower, double distanceInInchesForward, double distancesInInchesStrafing){ //Distance in inches, x and y as direction values, both between 1- and 1
         // DOING EPIC MATH (Based on Jamari's TeleOp Driving code from last year)
         double distanceInInches = Math.hypot(distancesInInchesStrafing, distanceInInchesForward);
-        double angleDirection = Math.atan2(distanceInInchesForward, distancesInInchesStrafing);
+        double angleDirection = Math.atan2(distanceInInchesForward, distancesInInchesStrafing); // May need to catch an ArithmeticException here
         double xTargetDirection = Math.cos(angleDirection);
         double yTargetDirection = Math.sin(angleDirection);
 
         double drivingPower = baseMotorPower * Math.hypot(xTargetDirection, yTargetDirection);
-        double strafingPower = xTargetDirection;
-        double robotTrajectory = angleDirection + (Math.PI/4);
+        double wheelTrajectory = angleDirection - (Math.PI/4);
 
         // The mathematics above might be epic, but are they how we WANT them to be?
         while(isTest && !gamepad1.a) {
             telemetry.addData("distanceInInches", distanceInInches);
             telemetry.addData("angleHeading", Math.toDegrees(angleDirection));
             telemetry.addData("drivingPower", drivingPower);
-            telemetry.addData("strafingPower", strafingPower);
-            telemetry.addData("robotTrajectory", Math.toDegrees(robotTrajectory));
+            telemetry.addData("robotTrajectory", Math.toDegrees(wheelTrajectory));
             telemetry.addData("Looks Good?", "Press A if it's so before we crash and burn");
             telemetry.update();
         }
 
         // Determining speeds for each drive motor
-        double desiredSpeedLF = (((drivingPower * (Math.sin(robotTrajectory)) + strafingPower)));
-        double desiredSpeedLB = (((drivingPower * (Math.cos(robotTrajectory))) + strafingPower));
-        double desiredSpeedRF = ((-(drivingPower * (Math.cos(robotTrajectory)) + strafingPower)));
-        double desiredSpeedRB = ((-(drivingPower * (Math.sin(robotTrajectory))) + strafingPower));
+        double desiredSpeedLF = (drivingPower * (Math.cos(wheelTrajectory)));
+        double desiredSpeedLB = (drivingPower * (Math.sin(wheelTrajectory)));
+        double desiredSpeedRF = -(drivingPower * (Math.sin(wheelTrajectory)));
+        double desiredSpeedRB = -(drivingPower * (Math.cos(wheelTrajectory)));
 
         // Determining targets for each drive motor
         int newTargetLF = motorDriveLF.getCurrentPosition() + (int)(distanceInInches * desiredSpeedLF * COUNTS_PER_INCH);
@@ -209,27 +235,57 @@ public class TherobotBase extends LinearOpMode {
      * complicated at the same time. Enjoy.*/
     public void imuTurn(double degreesToTurn) {
         angles = imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
-        double currentHeading = angles.firstAngle;
+        double currentHeading = angles.firstAngle + 180;
         double targetHeading = degreesToTurn + currentHeading;
+
+        while(targetHeading > 360) targetHeading -= 360;
 
         while (Math.abs(degreesToTurn) > 2) {
             angles = imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
-            currentHeading = angles.firstAngle;
+            currentHeading = angles.firstAngle + 180;
             degreesToTurn = targetHeading - currentHeading;
 
             double power = Range.clip(Math.signum(degreesToTurn) * (0.25 + (Math.abs(degreesToTurn) / 360)), -1, 1);
             setDrivePowerSides(power, -power);
+
             telemetry.addData("DegreesToTurn", degreesToTurn);
             telemetry.addData("Target", targetHeading);
             telemetry.addData("Current", currentHeading);
             telemetry.update();
         }
-        setDrivePower(0);
     }
 
     // <INSERT FOUNDATION SCORING METHOD HERE>
 
-    // <INSERT STONE COLLECTION AND SCORING METHOD HERE>
+    public void driveToQuarryAndScoreStonesOnFoundation() {
+        encoderDriveMecanum(false, 1, 0, -24); // Strafe left of the foundation
+        encoderDriveMecanum(false, 1, 24, -24);
+        encoderDriveMecanum(false, 1, 0, -24);
+        imuTurn(135);
+        setCollectionPower(1);
+        encoderDriveMecanum(false, 0.7, -16, 0);
+        encoderDriveMecanum(false, 0.7, 16, 0);
+        setCollectionPower(0);
+        imuTurn(45);
+        encoderDriveMecanum(false, 1, 36, 0);
+        encoderDriveMecanum(false, 0.7, 0, 12);
+        // Scoring Goes Here
+        if(30 - timerOpMode.seconds() > 12) {
+            encoderDriveMecanum(false, 0.7, 0, -12);
+            encoderDriveMecanum(false, 1, -36, 0);
+            imuTurn(135);
+            setCollectionPower(1);
+            encoderDriveMecanum(false, 0.7, -16, 0);
+            encoderDriveMecanum(false, 0.7, 16, 0);
+            setCollectionPower(0);
+            imuTurn(45);
+            encoderDriveMecanum(false, 1, 36, 0);
+            encoderDriveMecanum(false, 0.7, 0, 12);
+            // Scoring Goes Here
+        }
+        encoderDriveMecanum(false, 0.7, 0, -12);
+        encoderDriveMecanum(false, 1, -24, 0);
+    }
 
     // <INSERT SKYBRIDGE METHOD HERE>
 
