@@ -11,6 +11,8 @@ public class TherobotTeleop extends OpMode {
     @Override
     public void init() {
         therobot = new TherobotBase(this);
+        therobot.resetEncoders();
+        therobot.runWithoutEncoders();
     }
 
     @Override
@@ -20,6 +22,15 @@ public class TherobotTeleop extends OpMode {
 
     @Override
     public void loop() {
-        telemetry.addData("Yay!", therobot.timerOpMode.seconds());
+        therobot.mecanumDrive();
+        therobot.controlCollection();
+        therobot.controlDeliveryArm();
+        therobot.controlFoundationServos(gamepad1.right_bumper, gamepad1.left_bumper);
+        therobot.controlServoClaw();
+        therobot.controlServoGrabberSwivel(gamepad2.b, gamepad2.x);
+        therobot.yeetCapstone();
+
+        telemetry.addData("TeleOp is Active", therobot.timerOpMode.seconds());
+        telemetry.update();
     }
 }
