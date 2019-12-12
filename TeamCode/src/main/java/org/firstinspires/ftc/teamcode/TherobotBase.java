@@ -387,22 +387,35 @@ public class TherobotBase extends LinearOpMode {
             servoFoundationR.setPosition(0); //the 1's are placeholders cuz they may not be right but they seemed more right to me than zero but I'm prolly way off XD
             sleep(800);
             encoderDriveMecanum(0.55, -46, 0);
-            encoderDriveMecanum(0.2, 1, 0); //drive to foundation
+            encoderDriveMecanum(0.2, 3, 0); //drive to foundation
             servoFoundationL.setPosition(0);
             servoFoundationR.setPosition(1);
             sleep(300);
         } else if(allianceColor.equals("BLUE")) {
             encoderDriveMecanum(0.55, 38, 0); //drive to foundation
             encoderDriveMecanum(0.55, 0, -12); //drive to foundation
-            encoderDriveMecanum(0.2, 4, 0); //drive to foundation
+            encoderDriveMecanum(0.2, 5, 0); //drive to foundation
             servoFoundationL.setPosition(1); //grabbing the foundation
             servoFoundationR.setPosition(0); //the 1's are placeholders cuz they may not be right but they seemed more right to me than zero but I'm prolly way off XD
             sleep(800);
             encoderDriveMecanum(0.55, -46, 0);
-            encoderDriveMecanum(0.2, 1, 0); //drive to foundation
+            encoderDriveMecanum(0.2, 3, 0); //drive to foundation
             servoFoundationL.setPosition(0);
             servoFoundationR.setPosition(1);
             sleep(300);
+        }
+    }
+
+    public void pushTheFoundation() {
+        if(allianceColor.equals("RED")){
+            encoderDriveMecanum(0.5, 0, -32 * Math.sqrt(2));
+            encoderDriveMecanum(0.5, 20, 0);
+            encoderDriveMecanum(0.5,0, 15 * Math.sqrt(2));
+        }
+        else if(allianceColor.equals("BLUE")) {
+            encoderDriveMecanum(0.5, 0, 32 * Math.sqrt(2));
+            encoderDriveMecanum(0.5, 25, 0);
+            encoderDriveMecanum(0.5,0, -15 * Math.sqrt(2));
         }
     }
 
@@ -478,19 +491,19 @@ public class TherobotBase extends LinearOpMode {
         } else {
             if(allianceColor.equals("RED")) {
                 if(parkingPreference.equals("INSIDE")) {
-                    encoderDriveMecanum(0.5, 0, -36 * Math.sqrt(2));
-                    encoderDriveMecanum(0.5, 30, 0);
-                    encoderDriveMecanum(0.5, 0, -15 * Math.sqrt(2));
+                    encoderDriveMecanum(0.5, 10, 0);
+                    encoderDriveMecanum(0.5, 0, -37 * Math.sqrt(2));
                 } else if(parkingPreference.equals("OUTSIDE")) {
-                    encoderDriveMecanum(0.5, 0, -53 * Math.sqrt(2));
+                    encoderDriveMecanum(0.5, -20, 0);
+                    encoderDriveMecanum(0.5, 0, -37 * Math.sqrt(2));
                 }
             } else if(allianceColor.equals("BLUE")) {
                 if(parkingPreference.equals("INSIDE")) {
-                    encoderDriveMecanum(0.5, 0, 36 * Math.sqrt(2));
-                    encoderDriveMecanum(0.5, 30, 0);
-                    encoderDriveMecanum(0.5, 0, 15 * Math.sqrt(2));
+                    encoderDriveMecanum(0.5, 10, 0);
+                    encoderDriveMecanum(0.5, 0, 37 * Math.sqrt(2));
                 } else if(parkingPreference.equals("OUTSIDE")) {
-                    encoderDriveMecanum(0.5, 0, 53 * Math.sqrt(2));
+                    encoderDriveMecanum(0.5, -18, 0);
+                    encoderDriveMecanum(0.5, 0, 37 * Math.sqrt(2));
                 }
             }
         }
@@ -587,21 +600,22 @@ public class TherobotBase extends LinearOpMode {
 
     public void controlDeliveryArm () {
         if (motorLiftB.getCurrentPosition() > LIFT_INVERSION_MID_BOUND - LIFT_INVERSION_ARC_EXTENSION && motorLiftB.getCurrentPosition()
-                < LIFT_INVERSION_MID_BOUND + LIFT_INVERSION_ARC_EXTENSION){
+                < LIFT_INVERSION_MID_BOUND + LIFT_INVERSION_ARC_EXTENSION) {
             liftPowerShift = -0.1;
-        }
-        else {
+        } else {
             liftPowerShift = 1;
         }
         if (gamepad2.right_bumper) {
             motorLiftB.setPower(gamepad2.right_stick_y * 0.35);
-        }
-        else {
+        } else if (gamepad2.left_bumper) {
+            motorLiftB.setPower(.005);
+            motorLiftT.setPower(.005);
+        } else {
             motorLiftT.setPower(gamepad2.right_stick_y * liftPowerShift * 0.1);
             motorLiftB.setPower(gamepad2.right_stick_y * 0.1);
         }
     }
-
+    
     public void yeetCapstone(){
         if (gamepad2.dpad_down) {
             servoCapstone.setPower(1);
