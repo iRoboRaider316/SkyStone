@@ -615,7 +615,7 @@ public class TherobotBase extends LinearOpMode {
             motorLiftB.setPower(gamepad2.right_stick_y * 0.1);
         }
     }
-    
+
     public void yeetCapstone(){
         if (gamepad2.dpad_down) {
             servoCapstone.setPower(1);
