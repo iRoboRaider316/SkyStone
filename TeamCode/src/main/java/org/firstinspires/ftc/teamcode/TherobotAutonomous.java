@@ -12,9 +12,10 @@ public class TherobotAutonomous extends LinearOpMode {
         waitForStart();
         therobot.timerOpMode.reset();
         therobot.timerCheck();
-        therobot.scoreFoundation();
-        therobot.pushTheFoundation();
-        if(therobot.scoringStone) therobot.driveToQuarryAndScoreStonesOnFoundation();
+        if(therobot.pushingFoundation) {
+            therobot.scoreFoundation();
+            therobot.pushTheFoundation();
+        }
         therobot.driveToSkybridge();
     }
     // See how short that was? :D

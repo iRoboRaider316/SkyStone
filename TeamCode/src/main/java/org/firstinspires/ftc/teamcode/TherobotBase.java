@@ -55,7 +55,7 @@ public class TherobotBase extends LinearOpMode {
     // VARIABLES
     String allianceColor = "";
     String parkingPreference = "";
-    boolean scoringStone = false;
+    boolean pushingFoundation = false;
     double angleTest[] = new double[10];
     int count = 0;
     double sum;
@@ -150,20 +150,20 @@ public class TherobotBase extends LinearOpMode {
         } while(!gamepad1.y && !gamepad1.a);
 
         // Do Stone Scoring?
-        telemetry.addData("To score stone in auto, press", "X");
+        telemetry.addData("To move the foundation in auto, press", "X");
         telemetry.addData("Otherwise, press", "B");
         telemetry.update();
 
         do {
             sleep(50);
-            if(gamepad1.x) scoringStone = true;
-            if(gamepad1.b) scoringStone = false;
+            if(gamepad1.x) pushingFoundation = true;
+            if(gamepad1.b) pushingFoundation = false;
         } while(!gamepad1.x && !gamepad1.b);
 
         telemetry.addData("All Set! Just press PLAY when ready!", "D");
         telemetry.addData("Current Alliance", allianceColor);
         telemetry.addData("Parking Preference", parkingPreference);
-        telemetry.addData("Score Stone in Auto?", scoringStone);
+        telemetry.addData("Score Stone in Auto?", pushingFoundation);
         telemetry.update();
     }
 
@@ -386,7 +386,7 @@ public class TherobotBase extends LinearOpMode {
             servoFoundationL.setPosition(1); //grabbing the foundation
             servoFoundationR.setPosition(0); //the 1's are placeholders cuz they may not be right but they seemed more right to me than zero but I'm prolly way off XD
             sleep(800);
-            encoderDriveMecanum(0.55, -46, 0);
+            encoderDriveMecanum(0.55, -52, 0);
             encoderDriveMecanum(0.2, 3, 0); //drive to foundation
             servoFoundationL.setPosition(0);
             servoFoundationR.setPosition(1);
@@ -398,7 +398,7 @@ public class TherobotBase extends LinearOpMode {
             servoFoundationL.setPosition(1); //grabbing the foundation
             servoFoundationR.setPosition(0); //the 1's are placeholders cuz they may not be right but they seemed more right to me than zero but I'm prolly way off XD
             sleep(800);
-            encoderDriveMecanum(0.55, -46, 0);
+            encoderDriveMecanum(0.55, -52, 0);
             encoderDriveMecanum(0.2, 3, 0); //drive to foundation
             servoFoundationL.setPosition(0);
             servoFoundationR.setPosition(1);
@@ -414,7 +414,7 @@ public class TherobotBase extends LinearOpMode {
         }
         else if(allianceColor.equals("BLUE")) {
             encoderDriveMecanum(0.5, 0, 32 * Math.sqrt(2));
-            encoderDriveMecanum(0.5, 25, 0);
+            encoderDriveMecanum(0.5, 20, 0);
             encoderDriveMecanum(0.5,0, -15 * Math.sqrt(2));
         }
     }
@@ -473,22 +473,7 @@ public class TherobotBase extends LinearOpMode {
     }
 
     public void driveToSkybridge() {
-        if(scoringStone) {
-            if(allianceColor.equals("RED")) {
-                if(parkingPreference.equals("INSIDE")) {
-                    encoderDriveMecanum(0.5, 0, -18);
-                } else if(parkingPreference.equals("OUTSIDE")) {
-                    encoderDriveMecanum(0.5, 0, 30);
-                }
-            } else if(allianceColor.equals("BLUE")) {
-                if(parkingPreference.equals("INSIDE")) {
-                    encoderDriveMecanum(0.5, 0, 10);
-                } else if(parkingPreference.equals("OUTSIDE")) {
-                    encoderDriveMecanum(0.5, 0, -30 * Math.sqrt(2));
-                }
-            }
-            encoderDriveMecanum(0.5, -20, 0);
-        } else {
+        if(pushingFoundation) {
             if(allianceColor.equals("RED")) {
                 if(parkingPreference.equals("INSIDE")) {
                     encoderDriveMecanum(0.5, 10, 0);
@@ -504,6 +489,24 @@ public class TherobotBase extends LinearOpMode {
                 } else if(parkingPreference.equals("OUTSIDE")) {
                     encoderDriveMecanum(0.5, -18, 0);
                     encoderDriveMecanum(0.5, 0, 37 * Math.sqrt(2));
+                }
+            }
+        } else {
+            if(allianceColor.equals("RED")) {
+                if(parkingPreference.equals("INSIDE")) {
+                    encoderDriveMecanum(0.5, 0, -36 * Math.sqrt(2));
+                    encoderDriveMecanum(0.5, 30, 0);
+                    encoderDriveMecanum(0.5, 0, -15 * Math.sqrt(2));
+                } else if(parkingPreference.equals("OUTSIDE")) {
+                    encoderDriveMecanum(0.5, 0, -53 * Math.sqrt(2));
+                }
+            } else if(allianceColor.equals("BLUE")) {
+                if(parkingPreference.equals("INSIDE")) {
+                    encoderDriveMecanum(0.5, 0, 36 * Math.sqrt(2));
+                    encoderDriveMecanum(0.5, 30, 0);
+                    encoderDriveMecanum(0.5, 0, 15 * Math.sqrt(2));
+                } else if(parkingPreference.equals("OUTSIDE")) {
+                    encoderDriveMecanum(0.5, 0, 53 * Math.sqrt(2));
                 }
             }
         }
@@ -540,10 +543,10 @@ public class TherobotBase extends LinearOpMode {
             }
         }
 
-        motorDriveLF.setPower(((speed * -(Math.cos(angle)) + turnPower)));
-        motorDriveRF.setPower(((speed * (Math.sin(angle))) + turnPower));
-        motorDriveLB.setPower(((speed * -(Math.sin(angle)) + turnPower)));
-        motorDriveRB.setPower(((speed * (Math.cos(angle))) + turnPower));
+        motorDriveLF.setPower(((speed * (Math.cos(angle)) + turnPower)));
+        motorDriveRF.setPower(((speed * -(Math.sin(angle))) + turnPower));
+        motorDriveLB.setPower(((speed * (Math.sin(angle)) + turnPower)));
+        motorDriveRB.setPower(((speed * -(Math.cos(angle))) + turnPower));
     }
 
     //Collection code
@@ -552,14 +555,14 @@ public class TherobotBase extends LinearOpMode {
         //needs to be fancified but I don't know how :D
         if (gamepad2.right_trigger > .3) ;
         {
-            motorCollectionL.setPower(-1 * gamepad2.right_trigger);
-            motorCollectionR.setPower(1 * gamepad2.right_trigger);
+            motorCollectionL.setPower(-.8 * gamepad2.right_trigger);
+            motorCollectionR.setPower(.8 * gamepad2.right_trigger);
         }
         //eject if right trigger is pressed
         //needs to be fancified but I don't know how :D
         if (gamepad2.left_trigger > .3) {
-            motorCollectionL.setPower(1 * gamepad2.left_trigger);
-            motorCollectionR.setPower(-1 * gamepad2.left_trigger);
+            motorCollectionL.setPower(.8 * gamepad2.left_trigger);
+            motorCollectionR.setPower(-.8 * gamepad2.left_trigger);
         }
     }
 
