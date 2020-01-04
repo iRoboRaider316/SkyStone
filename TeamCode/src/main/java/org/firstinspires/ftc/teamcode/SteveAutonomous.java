@@ -14,6 +14,7 @@ public class SteveAutonomous extends LinearOpMode {
         steve.selection();
         waitForStart();
         if(steve.pushingFoundation) steve.scoreFoundation();
+        //steve.driveToSkybridge();
 
     }
 }

@@ -6,6 +6,8 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
+import com.qualcomm.robotcore.hardware.DigitalChannel;
+import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.Range;
 
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
@@ -20,7 +22,11 @@ public class SteveBase {
     DcMotor motorDriveLB;
     DcMotor motorDriveRF;
     DcMotor motorDriveRB;
+    Servo servoFoundationL;
+    Servo servoFoundationR;
 
+    DigitalChannel foundationTouchR;  // Hardware Device Object
+    DigitalChannel foundationTouchL;  // Hardware Device Object
     BNO055IMU imu;                  // IMU Gyro itself
     Orientation angles;             // IMU Gyro's Orienting
 
@@ -60,6 +66,17 @@ public class SteveBase {
 
         resetEncoders();
         runWithoutEncoders();
+
+        servoFoundationL = opMode.hardwareMap.servo.get("servoFoundationL");
+        servoFoundationR = opMode.hardwareMap.servo.get("servoFoundationR");
+        servoFoundationL.setPosition(0);
+        servoFoundationR.setPosition(1);
+
+        foundationTouchL = opMode.hardwareMap.get(DigitalChannel.class, "DigitalTouchL");
+        foundationTouchR = opMode.hardwareMap.get(DigitalChannel.class, "DigitalTouchR");
+
+        foundationTouchL.setMode(DigitalChannel.Mode.INPUT);
+        foundationTouchR.setMode(DigitalChannel.Mode.INPUT);
 
         BNO055IMU.Parameters parameters_IMU = new BNO055IMU.Parameters();
         parameters_IMU.angleUnit = BNO055IMU.AngleUnit.RADIANS;
@@ -106,6 +123,13 @@ public class SteveBase {
         motorDriveLB.setPower(motorPowerLB);
         motorDriveRF.setPower(motorPowerRF);
         motorDriveRB.setPower(motorPowerRB);
+    }
+
+    public boolean isFoundationGrabbed() {
+        // Since getState() returns false for pressed and true for not pressed, we had to apply some logic inverters to return results that make sense.
+        return (!foundationTouchL.getState() || !foundationTouchR.getState())
+                &&
+                servoFoundationL.getPosition() == 1 && servoFoundationR.getPosition() == 0;
     }
 
     /* =======================AUTONOMOUS EXCLUSIVE METHODS========================= */
@@ -235,7 +259,7 @@ public class SteveBase {
         double currentHeading = angles.firstAngle + 180;
         double degreesToTurn = target - currentHeading;
         degreesToTurn += degreesToTurn > 180 ? -360 :
-                degreesToTurn < -180 ?  360 : 0;
+                         degreesToTurn < -180 ? 360 : 0;
         return degreesToTurn;
     }
 
@@ -284,17 +308,25 @@ public class SteveBase {
     public void scoreFoundation() {
         if(allianceColor.equals("RED")) {
             encoderDriveMecanum(0.5, 26, 0); //drive to foundation
-            encoderDriveMecanum(0.5, 1, 0); //drive to foundation
-            //servoFoundationL.setPosition(1); //grabbing the foundation
-            //servoFoundationR.setPosition(0); //the 1's are placeholders cuz they may not be right but they seemed more right to me than zero but I'm prolly way off XD
-            ((LinearOpMode)opMode).sleep(800);
-            encoderDriveMecanum(-0.5, 0, -4); //drive to foundation
-            imuTurn(-90);
-            encoderDriveMecanum(-0.6, 0, 20 * Math.sqrt(2));
-            encoderDriveMecanum(0.6, 20, 0); //drive to foundation
-            //servoFoundationL.setPosition(0);
-            //servoFoundationR.setPosition(1);
-            ((LinearOpMode)opMode).sleep(300);
+            encoderDriveMecanum(-0.5, 0, 16); //drive to foundation
+            encoderDriveMecanum(0.5, 1.5, 0); //drive to foundation
+            while(((LinearOpMode)opMode).opModeIsActive()) {
+                servoFoundationL.setPosition(1);
+                servoFoundationR.setPosition(0);
+                ((LinearOpMode)opMode).sleep(800);
+                if(isFoundationGrabbed()) {
+                    break;
+                }
+                else {
+                    servoFoundationL.setPosition(0);
+                    servoFoundationR.setPosition(1);
+                    ((LinearOpMode)opMode).sleep(600);
+                    encoderDriveMecanum(0.5, 0.5, 0); //drive to foundation
+                }
+            }
+            encoderDriveMecanum(0.5, 1.5, 0); //drive to foundation
+            encoderDriveMecanum(0.5, -1.5, 0); //drive to foundation
+
         } else if(allianceColor.equals("BLUE")) {
             encoderDriveMecanum(0.4, 26, 0); //drive to foundation
             encoderDriveMecanum(-0.4, 0, -12); //drive to foundation
@@ -307,6 +339,48 @@ public class SteveBase {
             //servoFoundationL.setPosition(0);
             //servoFoundationR.setPosition(1);
             ((LinearOpMode)opMode).sleep(300);
+        }
+    }
+
+    public void driveToSkybridge() {
+        if(pushingFoundation) {
+            if(allianceColor.equals("RED")) {
+                if(parkingPreference.equals("INSIDE")) {
+                    encoderDriveMecanum(0.5, 10, 0);
+                    encoderDriveMecanum(0.5, 0, -37 * Math.sqrt(2));
+                } else if(parkingPreference.equals("OUTSIDE")) {
+                    encoderDriveMecanum(0.5, -20, 0);
+                    encoderDriveMecanum(0.5, 0, -37 * Math.sqrt(2));
+                }
+            } else if(allianceColor.equals("BLUE")) {
+                if(parkingPreference.equals("INSIDE")) {
+                    encoderDriveMecanum(0.5, 10, 0);
+                    encoderDriveMecanum(0.5, 0, 37 * Math.sqrt(2));
+                } else if(parkingPreference.equals("OUTSIDE")) {
+                    encoderDriveMecanum(0.5, -18, 0);
+                    encoderDriveMecanum(0.5, 0, 37 * Math.sqrt(2));
+                }
+            }
+        } else {
+            if(allianceColor.equals("RED")) {
+                if(parkingPreference.equals("INSIDE")) {
+                    encoderDriveMecanum(-0.5, 0, -30);
+                    imuTurn(absoluteHeading(0));
+                    encoderDriveMecanum(0.5, 26, 0);
+                    encoderDriveMecanum(-0.5, 0, -18);
+                } else if(parkingPreference.equals("OUTSIDE")) {
+                    encoderDriveMecanum(-0.5, 0, -46);
+                }
+            } else if(allianceColor.equals("BLUE")) {
+                if(parkingPreference.equals("INSIDE")) {
+                    encoderDriveMecanum(-0.5, 0, 30);
+                    imuTurn(absoluteHeading(0));
+                    encoderDriveMecanum(0.5, 26, 0);
+                    encoderDriveMecanum(-0.5, 0, 18);
+                } else if(parkingPreference.equals("OUTSIDE")) {
+                    encoderDriveMecanum(-0.5, 0, 46);
+                }
+            }
         }
     }
 
@@ -344,6 +418,28 @@ public class SteveBase {
         motorDriveLB.setPower(((speed * -(Math.sin(angle)) + turnPower)));
         motorDriveRF.setPower(((speed * (Math.sin(angle))) + turnPower));
         motorDriveRB.setPower(((speed * (Math.cos(angle))) + turnPower));
+
+    }
+
+    //foundation servos
+    public void controlFoundationServos (boolean br, boolean bl){
+        if (bl){
+            servoFoundationL.setPosition(0);
+            servoFoundationR.setPosition(1);
+        }
+        if (br){
+            servoFoundationL.setPosition(1);
+            servoFoundationR.setPosition(0);
+        }
+    }
+
+    public void postTelemetry() {
+        opMode.telemetry.addData("servoFoundationL", servoFoundationL.getPosition());
+        opMode.telemetry.addData("servoFoundationR", servoFoundationR.getPosition());
+        opMode.telemetry.addData("foundationTouchL", !foundationTouchL.getState());
+        opMode.telemetry.addData("foundationTouchR", !foundationTouchR.getState());
+        opMode.telemetry.addLine();
+        opMode.telemetry.addData("grabbed?", isFoundationGrabbed());
     }
 
 }
