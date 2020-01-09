@@ -3,7 +3,7 @@ package org.firstinspires.ftc.teamcode;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 
-@Autonomous(name="Steve Autonomous", group="")
+@Autonomous(name="Mando Autonomous", group="")
 public class SteveAutonomous extends LinearOpMode {
 
     SteveBase steve;

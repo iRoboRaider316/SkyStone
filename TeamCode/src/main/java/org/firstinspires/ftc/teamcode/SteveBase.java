@@ -104,8 +104,8 @@ public class SteveBase {
         opMode.telemetry.addLine("Initalizing input devices (sensors)...");
         opMode.telemetry.update();
 
-        foundationTouchL = opMode.hardwareMap.get(DigitalChannel.class, "DigitalTouchL");
-        foundationTouchR = opMode.hardwareMap.get(DigitalChannel.class, "DigitalTouchR");
+        foundationTouchL = opMode.hardwareMap.get(DigitalChannel.class, "foundationTouchL");
+        foundationTouchR = opMode.hardwareMap.get(DigitalChannel.class, "foundationTouchR");
 
         foundationTouchL.setMode(DigitalChannel.Mode.INPUT);
         foundationTouchR.setMode(DigitalChannel.Mode.INPUT);
@@ -492,16 +492,21 @@ public class SteveBase {
     public void controlCollection() {
         //collect if left trigger pressed
         //needs to be fancified but I don't know how :D
-        if (opMode.gamepad2.right_trigger > .3) ;
+        if (opMode.gamepad2.right_trigger > .3)
         {
-            motorCollectionL.setPower(-1 * opMode.gamepad2.right_trigger);
-            motorCollectionR.setPower(1 * opMode.gamepad2.right_trigger);
+            motorCollectionL.setPower(-.5 * opMode.gamepad2.right_trigger);
+            motorCollectionR.setPower(.5 * opMode.gamepad2.right_trigger);
         }
         //eject if right trigger is pressed
         //needs to be fancified but I don't know how :D
-        if (opMode.gamepad2.left_trigger > .3) {
-            motorCollectionL.setPower(1 * opMode.gamepad2.left_trigger);
-            motorCollectionR.setPower(-1 * opMode.gamepad2.left_trigger);
+        else if (opMode.gamepad2.left_trigger > .3) {
+            motorCollectionL.setPower(.5 * opMode.gamepad2.left_trigger);
+            motorCollectionR.setPower(-.5 * opMode.gamepad2.left_trigger);
+        }
+
+        else {
+            motorCollectionL.setPower(0);
+            motorCollectionR.setPower(0);
         }
     }
 
@@ -553,8 +558,8 @@ public class SteveBase {
     }
 
     public void controlLift(double rightStick, double leftStick) {
-        motorLiftL.setPower(rightStick);
-        motorLiftR.setPower(rightStick);
+        motorLiftL.setPower(rightStick/2);
+        motorLiftR.setPower(rightStick/2);
 
         servoFourbarArmL.setPower(leftStick);
         servoFourbarArmR.setPower(-leftStick);

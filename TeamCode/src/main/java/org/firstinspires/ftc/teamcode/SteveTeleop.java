@@ -3,7 +3,7 @@ package org.firstinspires.ftc.teamcode;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
-@TeleOp(name="Steve TeleOp", group="OpMode")
+@TeleOp(name="Mando TeleOp", group="OpMode")
 public class SteveTeleop extends OpMode {
 
     SteveBase steve;
@@ -17,8 +17,10 @@ public class SteveTeleop extends OpMode {
     public void loop() {
         steve.postTelemetry();
         steve.updateDriveTrain();
+        steve.controlCollection();
         steve.controlFoundationServos();
         steve.controlServoClaw();
+        steve.parkServo();
         steve.controlServoGrabberSwivel(gamepad2.b, gamepad2.x);
         steve.controlLift(gamepad2.right_stick_y, gamepad2.left_stick_y);
     }
