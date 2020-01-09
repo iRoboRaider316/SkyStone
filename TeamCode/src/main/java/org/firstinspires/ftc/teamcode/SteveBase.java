@@ -4,6 +4,7 @@ import com.qualcomm.hardware.bosch.BNO055IMU;
 import com.qualcomm.hardware.bosch.JustLoggingAccelerationIntegrator;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
+import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.DigitalChannel;
@@ -22,8 +23,17 @@ public class SteveBase {
     DcMotor motorDriveLB;
     DcMotor motorDriveRF;
     DcMotor motorDriveRB;
+    DcMotor motorCollectionL;
+    DcMotor motorCollectionR;
+    DcMotor motorLiftL;
+    DcMotor motorLiftR;
     Servo servoFoundationL;
     Servo servoFoundationR;
+    Servo servoGrabber;
+    CRServo servoGrabberSwivel;
+    CRServo servoFourbarArmL;
+    CRServo servoFourbarArmR;
+    CRServo servoPark;
 
     DigitalChannel foundationTouchR;  // Hardware Device Object
     DigitalChannel foundationTouchL;  // Hardware Device Object
@@ -49,6 +59,10 @@ public class SteveBase {
     public SteveBase(OpMode theOpMode) {
         opMode = theOpMode;
 
+        // INITIALIZE MOTORS AND SERVOS
+        opMode.telemetry.addLine("Initalizing output devices (motors, servos)...");
+        opMode.telemetry.update();
+
         motorDriveLF = opMode.hardwareMap.dcMotor.get("motorDriveLF");
         motorDriveLB = opMode.hardwareMap.dcMotor.get("motorDriveLB");
         motorDriveRF = opMode.hardwareMap.dcMotor.get("motorDriveRF");
@@ -67,10 +81,28 @@ public class SteveBase {
         resetEncoders();
         runWithoutEncoders();
 
+        motorCollectionL = opMode.hardwareMap.dcMotor.get("motorCollectionL");
+        motorCollectionR = opMode.hardwareMap.dcMotor.get("motorCollectionR");
+        motorLiftL = opMode.hardwareMap.dcMotor.get("motorLiftL");
+        motorLiftR = opMode.hardwareMap.dcMotor.get("motorLiftR");
+
         servoFoundationL = opMode.hardwareMap.servo.get("servoFoundationL");
         servoFoundationR = opMode.hardwareMap.servo.get("servoFoundationR");
         servoFoundationL.setPosition(0);
         servoFoundationR.setPosition(1);
+        
+        servoGrabber = opMode.hardwareMap.servo.get("servoGrabber");
+        servoGrabber.setPosition(0);
+        servoGrabberSwivel = opMode.hardwareMap.crservo.get("servoGrabberSwivel");
+
+        servoFourbarArmL = opMode.hardwareMap.crservo.get("servoFourbarArmL");
+        servoFourbarArmR = opMode.hardwareMap.crservo.get("servoFourbarArmR");
+
+        servoPark = opMode.hardwareMap.crservo.get("servoPark");
+
+        // INITIALIZE SENSORS
+        opMode.telemetry.addLine("Initalizing input devices (sensors)...");
+        opMode.telemetry.update();
 
         foundationTouchL = opMode.hardwareMap.get(DigitalChannel.class, "DigitalTouchL");
         foundationTouchR = opMode.hardwareMap.get(DigitalChannel.class, "DigitalTouchR");
@@ -87,6 +119,9 @@ public class SteveBase {
         parameters_IMU.accelerationIntegrationAlgorithm = new JustLoggingAccelerationIntegrator();
         imu = opMode.hardwareMap.get(BNO055IMU.class, "imu3");
         imu.initialize(parameters_IMU);
+
+        opMode.telemetry.addLine("Initialization Succeeded!");
+        opMode.telemetry.update();
     }
 
     public void resetEncoders(){
@@ -135,6 +170,7 @@ public class SteveBase {
     /* =======================AUTONOMOUS EXCLUSIVE METHODS========================= */
     public void selection() {
         // What alliance color are we? (By the way, this is a do-while loop. It always runs at least once because of how it's set up)
+        opMode.telemetry.addLine("Awaiting Autonomous Selection...");
         opMode.telemetry.addData("For blue alliance, press", "X");
         opMode.telemetry.addData("For red alliance, press", "B");
         opMode.telemetry.update();
@@ -146,6 +182,7 @@ public class SteveBase {
         } while(!opMode.gamepad1.x && !opMode.gamepad1.b);
 
         // Parking Preference?
+        opMode.telemetry.addLine("Awaiting Autonomous Selection...");
         opMode.telemetry.addData("To park inside, press", "Y");
         opMode.telemetry.addData("To park outside, press", "A");
         opMode.telemetry.update();
@@ -157,6 +194,7 @@ public class SteveBase {
         } while(!opMode.gamepad1.y && !opMode.gamepad1.a);
 
         // Score SkyStones?
+        opMode.telemetry.addLine("Awaiting Autonomous Selection...");
         opMode.telemetry.addData("To score the SkyStones, press:", "X");
         opMode.telemetry.addData("Otherwise, press", "B");
         opMode.telemetry.update();
@@ -168,6 +206,7 @@ public class SteveBase {
         } while(!opMode.gamepad1.x && !opMode.gamepad1.b);
 
         // Do Foundation Grabbing?
+        opMode.telemetry.addLine("Awaiting Autonomous Selection...");
         opMode.telemetry.addData("To move the foundation in auto, press", "Y");
         opMode.telemetry.addData("Otherwise, press", "A");
         opMode.telemetry.update();
@@ -305,7 +344,7 @@ public class SteveBase {
         ((LinearOpMode)opMode).sleep(100);
     }
 
-    public void scoreFoundation() {
+    public void grabFoundation() {
         if(allianceColor.equals("RED")) {
             encoderDriveMecanum(0.5, 26, 0); //drive to foundation
             encoderDriveMecanum(-0.5, 0, 16); //drive to foundation
@@ -328,17 +367,46 @@ public class SteveBase {
             encoderDriveMecanum(0.5, -1.5, 0); //drive to foundation
 
         } else if(allianceColor.equals("BLUE")) {
-            encoderDriveMecanum(0.4, 26, 0); //drive to foundation
-            encoderDriveMecanum(-0.4, 0, -12); //drive to foundation
-            encoderDriveMecanum(0.3, 2, 0); //drive to foundation
-            //servoFoundationL.setPosition(1); //grabbing the foundation
-            //servoFoundationR.setPosition(0); //the 1's are placeholders cuz they may not be right but they seemed more right to me than zero but I'm prolly way off XD
-            ((LinearOpMode)opMode).sleep(800);
-            encoderDriveMecanum(-0.4, -30, 0);
-            encoderDriveMecanum(0.3, 3, 0); //drive to foundation
-            //servoFoundationL.setPosition(0);
-            //servoFoundationR.setPosition(1);
-            ((LinearOpMode)opMode).sleep(300);
+            encoderDriveMecanum(0.5, 26, 0); //drive to foundation
+            encoderDriveMecanum(-0.5, 0, -16); //drive to foundation
+            encoderDriveMecanum(0.5, 1.5, 0); //drive to foundation
+            while(((LinearOpMode)opMode).opModeIsActive()) {
+                servoFoundationL.setPosition(1);
+                servoFoundationR.setPosition(0);
+                ((LinearOpMode)opMode).sleep(800);
+                if(isFoundationGrabbed()) {
+                    break;
+                }
+                else {
+                    servoFoundationL.setPosition(0);
+                    servoFoundationR.setPosition(1);
+                    ((LinearOpMode)opMode).sleep(600);
+                    encoderDriveMecanum(0.5, 0.5, 0); //drive to foundation
+                }
+            }
+            encoderDriveMecanum(0.5, 1.5, 0); //drive to foundation
+            encoderDriveMecanum(0.5, -1.5, 0); //drive to foundation
+        }
+    }
+
+    public void turnAndScoreFoundation(){
+        angles = imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
+        if(allianceColor.equals ("RED")){
+            while (angles.firstAngle > -85){
+                angles = imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
+                setDrivePowerSides(.7, -.3);
+            }
+            setDrivePowerSides(-.4, .6);
+            ((LinearOpMode)opMode).sleep(3000);
+            encoderDriveMecanum(-0.45, 0, 10);
+        } else if(allianceColor.equals("BLUE")){
+            while (angles.firstAngle < 85){
+                angles = imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
+                setDrivePowerSides(.3, -.7);
+            }
+            setDrivePowerSides(-.6, .4);
+            ((LinearOpMode)opMode).sleep(3000);
+            encoderDriveMecanum(-0.45, 0, -10);
         }
     }
 
@@ -421,16 +489,75 @@ public class SteveBase {
 
     }
 
+    public void controlCollection() {
+        //collect if left trigger pressed
+        //needs to be fancified but I don't know how :D
+        if (opMode.gamepad2.right_trigger > .3) ;
+        {
+            motorCollectionL.setPower(-1 * opMode.gamepad2.right_trigger);
+            motorCollectionR.setPower(1 * opMode.gamepad2.right_trigger);
+        }
+        //eject if right trigger is pressed
+        //needs to be fancified but I don't know how :D
+        if (opMode.gamepad2.left_trigger > .3) {
+            motorCollectionL.setPower(1 * opMode.gamepad2.left_trigger);
+            motorCollectionR.setPower(-1 * opMode.gamepad2.left_trigger);
+        }
+    }
+
     //foundation servos
-    public void controlFoundationServos (boolean br, boolean bl){
-        if (bl){
+    public void controlFoundationServos (){
+        if (opMode.gamepad1.left_bumper){
             servoFoundationL.setPosition(0);
             servoFoundationR.setPosition(1);
         }
-        if (br){
+        if (opMode.gamepad1.right_bumper){
             servoFoundationL.setPosition(1);
             servoFoundationR.setPosition(0);
         }
+    }
+
+    public void parkServo(){
+        if (opMode.gamepad2.dpad_down) {
+            servoPark.setPower(1);
+        }
+        else if (opMode.gamepad2.dpad_up){
+            servoPark.setPower(-1);
+        }
+        else {
+            servoPark.setPower(0);
+        }
+    }
+
+    //nub clamp servo code here
+    public void controlServoClaw() {
+        if(opMode.gamepad2.y || opMode.gamepad1.y) {
+            servoGrabber.setPosition(1);
+        }
+        if (opMode.gamepad2.a || opMode.gamepad1.a) {
+            servoGrabber.setPosition(0);
+        }
+    }
+
+    //swivel servo code here
+    public void controlServoGrabberSwivel (boolean b, boolean x) {
+        if (x) {
+            servoGrabberSwivel.setPower(1);
+        }
+        else if (b) {
+            servoGrabberSwivel.setPower(-1);
+        }
+        else {
+            servoGrabberSwivel.setPower(0);
+        }
+    }
+
+    public void controlLift(double rightStick, double leftStick) {
+        motorLiftL.setPower(rightStick);
+        motorLiftR.setPower(rightStick);
+
+        servoFourbarArmL.setPower(leftStick);
+        servoFourbarArmR.setPower(-leftStick);
     }
 
     public void postTelemetry() {

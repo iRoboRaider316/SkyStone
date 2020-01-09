@@ -17,6 +17,9 @@ public class SteveTeleop extends OpMode {
     public void loop() {
         steve.postTelemetry();
         steve.updateDriveTrain();
-        steve.controlFoundationServos(gamepad1.right_bumper, gamepad1.left_bumper);
+        steve.controlFoundationServos();
+        steve.controlServoClaw();
+        steve.controlServoGrabberSwivel(gamepad2.b, gamepad2.x);
+        steve.controlLift(gamepad2.right_stick_y, gamepad2.left_stick_y);
     }
 }
