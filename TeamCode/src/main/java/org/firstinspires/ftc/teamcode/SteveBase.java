@@ -53,7 +53,7 @@ public class SteveBase {
     double ENCODER_CPR = 537.6;
     double WHEEL_CURCUMFERENCE = 4 * Math.PI;
     double COUNTS_PER_INCH = ENCODER_CPR / WHEEL_CURCUMFERENCE;
-    int ENCODER_DRIVE_ALLOWABLE_ERROR = 7;
+    int ENCODER_DRIVE_ALLOWABLE_ERROR = 20;
     double STARTING_HEADING = 0;
 
     public SteveBase(OpMode theOpMode) {
@@ -88,8 +88,8 @@ public class SteveBase {
 
         servoFoundationL = opMode.hardwareMap.servo.get("servoFoundationL");
         servoFoundationR = opMode.hardwareMap.servo.get("servoFoundationR");
-        servoFoundationL.setPosition(0);
-        servoFoundationR.setPosition(1);
+        servoFoundationL.setPosition(1);
+        servoFoundationR.setPosition(0);
         
         servoGrabber = opMode.hardwareMap.servo.get("servoGrabber");
         servoGrabber.setPosition(0);
@@ -164,7 +164,7 @@ public class SteveBase {
         // Since getState() returns false for pressed and true for not pressed, we had to apply some logic inverters to return results that make sense.
         return (!foundationTouchL.getState() || !foundationTouchR.getState())
                 &&
-                servoFoundationL.getPosition() == 1 && servoFoundationR.getPosition() == 0;
+                servoFoundationL.getPosition() == 0 && servoFoundationR.getPosition() == 1;
     }
 
     /* =======================AUTONOMOUS EXCLUSIVE METHODS========================= */
@@ -226,6 +226,10 @@ public class SteveBase {
     }
 
     void encoderDriveMecanum(double baseMotorPower, double distanceInInchesForward, double distancesInInchesStrafing){ //Distance in inches, x and y as direction values, both between 1- and 1
+        angles = imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.RADIANS);
+        double startingHeading = angles.firstAngle;
+        double headingError;
+
         // DOING EPIC MATH (Based on Jamari's TeleOp Driving code from last year)
         double distanceInInches = Math.hypot(distancesInInchesStrafing, distanceInInchesForward);
         double angleDirection = Math.atan2(distanceInInchesForward, distancesInInchesStrafing); // May need to catch an ArithmeticException here
@@ -267,15 +271,23 @@ public class SteveBase {
                 Math.abs(distanceToTargetRB) > ENCODER_DRIVE_ALLOWABLE_ERROR &&
                 ((LinearOpMode)opMode).opModeIsActive()) {
 
+            angles = imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.RADIANS);
+            headingError = startingHeading - angles.firstAngle;
+
+            desiredSpeedLF = (-(drivingPower * (Math.cos(wheelTrajectory + headingError))) * Math.sqrt(2)) - (headingError/2);
+            desiredSpeedLB = (-(drivingPower * (Math.sin(wheelTrajectory + headingError))) * Math.sqrt(2)) - (headingError/2);
+            desiredSpeedRF = ((drivingPower * (Math.sin(wheelTrajectory + headingError))) * Math.sqrt(2)) - (headingError/2);
+            desiredSpeedRB = ((drivingPower * (Math.cos(wheelTrajectory + headingError))) * Math.sqrt(2)) - (headingError/2);
+
             distanceToTargetLF = newTargetLF - motorDriveLF.getCurrentPosition();
             distanceToTargetLB = newTargetLB - motorDriveLB.getCurrentPosition();
             distanceToTargetRF = newTargetRF - motorDriveRF.getCurrentPosition();
             distanceToTargetRB = newTargetRB - motorDriveRB.getCurrentPosition();
 
-            if(Math.abs(distanceToTargetLF) < ENCODER_DRIVE_ALLOWABLE_ERROR + 400) { motorDriveLF.setPower(desiredSpeedLF / 3); } else {motorDriveLF.setPower(desiredSpeedLF);}
-            if(Math.abs(distanceToTargetLB) < ENCODER_DRIVE_ALLOWABLE_ERROR + 400) { motorDriveLB.setPower(desiredSpeedLB / 3); } else {motorDriveLB.setPower(desiredSpeedLB);}
-            if(Math.abs(distanceToTargetRF) < ENCODER_DRIVE_ALLOWABLE_ERROR + 400) { motorDriveRF.setPower(desiredSpeedRF / 3); } else {motorDriveRF.setPower(desiredSpeedRF);}
-            if(Math.abs(distanceToTargetRB) < ENCODER_DRIVE_ALLOWABLE_ERROR + 400) { motorDriveRB.setPower(desiredSpeedRB / 3); } else {motorDriveRB.setPower(desiredSpeedRB);}
+            if(Math.abs(distanceToTargetLF) < ENCODER_DRIVE_ALLOWABLE_ERROR + 400) { motorDriveLF.setPower(desiredSpeedLF / 2); } else {motorDriveLF.setPower(desiredSpeedLF);}
+            if(Math.abs(distanceToTargetLB) < ENCODER_DRIVE_ALLOWABLE_ERROR + 400) { motorDriveLB.setPower(desiredSpeedLB / 2); } else {motorDriveLB.setPower(desiredSpeedLB);}
+            if(Math.abs(distanceToTargetRF) < ENCODER_DRIVE_ALLOWABLE_ERROR + 400) { motorDriveRF.setPower(desiredSpeedRF / 2); } else {motorDriveRF.setPower(desiredSpeedRF);}
+            if(Math.abs(distanceToTargetRB) < ENCODER_DRIVE_ALLOWABLE_ERROR + 400) { motorDriveRB.setPower(desiredSpeedRB / 2); } else {motorDriveRB.setPower(desiredSpeedRB);}
 
             opMode.telemetry.addData("distanceToTargetLF", distanceToTargetLF);
             opMode.telemetry.addData("distanceToTargetLB", distanceToTargetLB);
@@ -319,7 +331,7 @@ public class SteveBase {
             /*double POWER_CAP = 45;      // Once we hit this power, we should slow down.
             double DEGREES_TO_POWER = Range.clip(Math.pow(degreesToTurn / POWER_CAP, 1/3), -1, 1);
             double TURN_POWER = DEGREES_TO_POWER * .7;*/
-            double TURN_POWER = Range.clip(Math.signum(degreesToTurn) * (0.1 + (Math.abs(degreesToTurn) / 270)), -1, 1);
+            double TURN_POWER = Range.clip(Math.signum(degreesToTurn) * (0.2 + (Math.abs(degreesToTurn) / 270)), -1, 1);
             setDrivePowerSides(-TURN_POWER, -TURN_POWER);
 
             opMode.telemetry.addData("DegreesToTurn", degreesToTurn);
@@ -346,46 +358,48 @@ public class SteveBase {
 
     public void grabFoundation() {
         if(allianceColor.equals("RED")) {
-            encoderDriveMecanum(0.5, 26, 0); //drive to foundation
-            encoderDriveMecanum(-0.5, 0, 16); //drive to foundation
+            encoderDriveMecanum(0.42, 26, 0); //drive to foundation
+            encoderDriveMecanum(-0.5, 0, 18); //drive to foundation
+            imuTurn(absoluteHeading(0));
             encoderDriveMecanum(0.5, 1.5, 0); //drive to foundation
             while(((LinearOpMode)opMode).opModeIsActive()) {
-                servoFoundationL.setPosition(1);
-                servoFoundationR.setPosition(0);
+                servoFoundationL.setPosition(0);
+                servoFoundationR.setPosition(1);
                 ((LinearOpMode)opMode).sleep(800);
                 if(isFoundationGrabbed()) {
                     break;
                 }
                 else {
-                    servoFoundationL.setPosition(0);
-                    servoFoundationR.setPosition(1);
+                    servoFoundationL.setPosition(1);
+                    servoFoundationR.setPosition(0);
                     ((LinearOpMode)opMode).sleep(600);
-                    encoderDriveMecanum(0.5, 0.5, 0); //drive to foundation
+                    encoderDriveMecanum(0.5, 1, 0); //drive to foundation
                 }
             }
             encoderDriveMecanum(0.5, 1.5, 0); //drive to foundation
             encoderDriveMecanum(0.5, -1.5, 0); //drive to foundation
 
         } else if(allianceColor.equals("BLUE")) {
-            encoderDriveMecanum(0.5, 26, 0); //drive to foundation
-            encoderDriveMecanum(-0.5, 0, -16); //drive to foundation
-            encoderDriveMecanum(0.5, 1.5, 0); //drive to foundation
+            encoderDriveMecanum(0.42, 26, 0); //drive to foundation
+            encoderDriveMecanum(-0.5, 0, -18); //drive to foundation
+            imuTurn(absoluteHeading(0));
+            encoderDriveMecanum(0.5, 3.5, 0); //drive to foundation
             while(((LinearOpMode)opMode).opModeIsActive()) {
-                servoFoundationL.setPosition(1);
-                servoFoundationR.setPosition(0);
+                servoFoundationL.setPosition(0);
+                servoFoundationR.setPosition(1);
                 ((LinearOpMode)opMode).sleep(800);
                 if(isFoundationGrabbed()) {
                     break;
                 }
                 else {
-                    servoFoundationL.setPosition(0);
-                    servoFoundationR.setPosition(1);
+                    servoFoundationL.setPosition(1);
+                    servoFoundationR.setPosition(0);
                     ((LinearOpMode)opMode).sleep(600);
-                    encoderDriveMecanum(0.5, 0.5, 0); //drive to foundation
+                    encoderDriveMecanum(0.5, 1, 0); //drive to foundation
                 }
             }
-            encoderDriveMecanum(0.5, 1.5, 0); //drive to foundation
-            encoderDriveMecanum(0.5, -1.5, 0); //drive to foundation
+            encoderDriveMecanum(0.6, 1.5, 0); //drive to foundation
+            encoderDriveMecanum(0.6, -1.5, 0); //drive to foundation
         }
     }
 
@@ -396,57 +410,58 @@ public class SteveBase {
                 angles = imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
                 setDrivePowerSides(.7, -.3);
             }
-            setDrivePowerSides(-.4, .6);
-            ((LinearOpMode)opMode).sleep(3000);
-            encoderDriveMecanum(-0.45, 0, 10);
+            setDrivePowerSides(-.3, .45);
+            ((LinearOpMode)opMode).sleep(2500);
         } else if(allianceColor.equals("BLUE")){
             while (angles.firstAngle < 85){
                 angles = imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
-                setDrivePowerSides(.3, -.7);
+                setDrivePowerSides(.3, -.8);
             }
-            setDrivePowerSides(-.6, .4);
-            ((LinearOpMode)opMode).sleep(3000);
-            encoderDriveMecanum(-0.45, 0, -10);
+            setDrivePowerSides(-.45, .3);
+            ((LinearOpMode)opMode).sleep(2500);
         }
+        servoFoundationL.setPosition(1);
+        servoFoundationR.setPosition(0);
+        ((LinearOpMode)opMode).sleep(600);
     }
 
     public void driveToSkybridge() {
         if(pushingFoundation) {
             if(allianceColor.equals("RED")) {
                 if(parkingPreference.equals("INSIDE")) {
-                    encoderDriveMecanum(0.5, 10, 0);
-                    encoderDriveMecanum(0.5, 0, -37 * Math.sqrt(2));
+                    encoderDriveMecanum(-0.5, 0, -30);
+                    imuTurn(absoluteHeading(-90));
+                    encoderDriveMecanum(0.4, -45, 0);
                 } else if(parkingPreference.equals("OUTSIDE")) {
-                    encoderDriveMecanum(0.5, -20, 0);
-                    encoderDriveMecanum(0.5, 0, -37 * Math.sqrt(2));
+                    encoderDriveMecanum(0.4, -45, 0);
                 }
             } else if(allianceColor.equals("BLUE")) {
                 if(parkingPreference.equals("INSIDE")) {
-                    encoderDriveMecanum(0.5, 10, 0);
-                    encoderDriveMecanum(0.5, 0, 37 * Math.sqrt(2));
+                    encoderDriveMecanum(-0.5, 0, 30);
+                    imuTurn(absoluteHeading(90));
+                    encoderDriveMecanum(0.4, -45, 0);
                 } else if(parkingPreference.equals("OUTSIDE")) {
-                    encoderDriveMecanum(0.5, -18, 0);
-                    encoderDriveMecanum(0.5, 0, 37 * Math.sqrt(2));
+                    encoderDriveMecanum(0.4, -45, 0);
                 }
             }
         } else {
             if(allianceColor.equals("RED")) {
                 if(parkingPreference.equals("INSIDE")) {
-                    encoderDriveMecanum(-0.5, 0, -30);
+                    encoderDriveMecanum(-0.4, 0, -30);
                     imuTurn(absoluteHeading(0));
-                    encoderDriveMecanum(0.5, 26, 0);
-                    encoderDriveMecanum(-0.5, 0, -18);
+                    encoderDriveMecanum(0.4, 26, 0);
+                    encoderDriveMecanum(-0.4, 0, -18);
                 } else if(parkingPreference.equals("OUTSIDE")) {
-                    encoderDriveMecanum(-0.5, 0, -46);
+                    encoderDriveMecanum(-0.4, 0, -46);
                 }
             } else if(allianceColor.equals("BLUE")) {
                 if(parkingPreference.equals("INSIDE")) {
-                    encoderDriveMecanum(-0.5, 0, 30);
+                    encoderDriveMecanum(-0.4, 0, 30);
                     imuTurn(absoluteHeading(0));
-                    encoderDriveMecanum(0.5, 26, 0);
-                    encoderDriveMecanum(-0.5, 0, 18);
+                    encoderDriveMecanum(0.4, 26, 0);
+                    encoderDriveMecanum(-0.4, 0, 18);
                 } else if(parkingPreference.equals("OUTSIDE")) {
-                    encoderDriveMecanum(-0.5, 0, 46);
+                    encoderDriveMecanum(-0.4, 0, 46);
                 }
             }
         }
