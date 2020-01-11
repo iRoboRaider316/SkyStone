@@ -13,11 +13,14 @@ public class SteveAutonomous extends LinearOpMode {
         steve = new SteveBase(this);
         steve.selection();
         waitForStart();
+        steve.timerOpMode.reset();
         if(steve.pushingFoundation) {
             steve.grabFoundation();
             steve.turnAndScoreFoundation();
         }
         steve.driveToSkybridge();
+        steve.waitForEnd();
+        steve.storeHeading();
 
     }
 }

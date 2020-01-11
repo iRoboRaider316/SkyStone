@@ -9,12 +9,17 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.DigitalChannel;
 import com.qualcomm.robotcore.hardware.Servo;
+import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.Range;
+import com.qualcomm.robotcore.util.ReadWriteFile;
 
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.AxesOrder;
 import org.firstinspires.ftc.robotcore.external.navigation.AxesReference;
 import org.firstinspires.ftc.robotcore.external.navigation.Orientation;
+import org.firstinspires.ftc.robotcore.internal.system.AppUtil;
+
+import java.io.File;
 
 public class SteveBase {
 
@@ -39,6 +44,9 @@ public class SteveBase {
     DigitalChannel foundationTouchL;  // Hardware Device Object
     BNO055IMU imu;                  // IMU Gyro itself
     Orientation angles;             // IMU Gyro's Orienting
+    File headingFile = AppUtil.getInstance().getSettingsFile("headingFile");
+
+    ElapsedTime timerOpMode;
 
     double angleTest[] = new double[10];
     int count = 0;
@@ -119,6 +127,8 @@ public class SteveBase {
         parameters_IMU.accelerationIntegrationAlgorithm = new JustLoggingAccelerationIntegrator();
         imu = opMode.hardwareMap.get(BNO055IMU.class, "imu3");
         imu.initialize(parameters_IMU);
+
+        timerOpMode = new ElapsedTime();
 
         opMode.telemetry.addLine("Initialization Succeeded!");
         opMode.telemetry.update();
@@ -467,7 +477,30 @@ public class SteveBase {
         }
     }
 
+    public void waitForEnd(){
+        while (timerOpMode.seconds() <29){
+        }
+    }
+
+    public void storeHeading(){
+        angles = imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.RADIANS);
+        ReadWriteFile.writeFile(headingFile, String.valueOf(angles.firstAngle));
+        opMode.telemetry.addData("headingFile", "" + ReadWriteFile.readFile(headingFile)); //Store robot heading to phone
+        opMode.telemetry.update();
+    }
+
     /* =======================TELEOP METHODS========================= */
+    public void retrieveHeading() {
+        STARTING_HEADING = Double.parseDouble(ReadWriteFile.readFile(headingFile));
+    }
+    
+    public void resetHeading(){
+        if (opMode.gamepad1.b){ // In case somethine goes wrong, driver can reposition the robot and reset the heading during teleop
+            angles = imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.RADIANS);
+            STARTING_HEADING = angles.firstAngle;
+        }
+    }
+
     public void updateDriveTrain() {
         angles = imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.RADIANS);
 

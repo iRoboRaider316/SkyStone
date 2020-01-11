@@ -11,11 +11,13 @@ public class SteveTeleop extends OpMode {
     @Override
     public void init() {
         steve = new SteveBase(this);
+        steve.retrieveHeading();
     }
 
     @Override
     public void loop() {
         steve.postTelemetry();
+        steve.resetHeading();
         steve.updateDriveTrain();
         steve.controlCollection();
         steve.controlFoundationServos();
