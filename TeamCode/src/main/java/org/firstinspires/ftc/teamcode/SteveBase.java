@@ -11,6 +11,7 @@ import com.qualcomm.robotcore.hardware.ColorSensor;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.DigitalChannel;
+import com.qualcomm.robotcore.hardware.DistanceSensor;
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.Range;
@@ -22,6 +23,7 @@ import org.firstinspires.ftc.robotcore.external.matrices.VectorF;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.AxesOrder;
 import org.firstinspires.ftc.robotcore.external.navigation.AxesReference;
+import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.Orientation;
 import org.firstinspires.ftc.robotcore.external.navigation.VuforiaLocalizer;
 import org.firstinspires.ftc.robotcore.external.navigation.VuforiaTrackable;
@@ -47,11 +49,11 @@ public class SteveBase {
     Servo servoFoundationL;
     Servo servoFoundationR;
     Servo servoGrabber;
-    CRServo servoGrabberSwivel;
+    CRServo servoCapstone;
     CRServo servoFourbarArmL;
     CRServo servoFourbarArmR;
     CRServo servoPark;
-    ColorSensor sensorColor;
+    DistanceSensor sensorColor;
     DigitalChannel foundationTouchR;
     DigitalChannel foundationTouchL;
 
@@ -61,6 +63,7 @@ public class SteveBase {
 
     ElapsedTime timerOpMode;
     ElapsedTime timerVuforia;
+    ElapsedTime timerTravel;
     public ElapsedTime buttonPress = new ElapsedTime();
     public ElapsedTime transferTimer = new ElapsedTime();
 
@@ -107,7 +110,7 @@ public class SteveBase {
     double lockedHeading;
 
     boolean driveCollect = false;
-    boolean autoTransfer = false;
+    boolean autoTransfer = true;
     int hopperState = 0;
     float hsvValues[] = {0F, 0F, 0F};
     final double SCALE_FACTOR = 255;
@@ -163,8 +166,9 @@ public class SteveBase {
         servoFoundationR.setPosition(0);
         
         servoGrabber = opMode.hardwareMap.servo.get("servoGrabber");
-        servoGrabber.setPosition(0);
-        servoGrabberSwivel = opMode.hardwareMap.crservo.get("servoGrabberSwivel");
+        servoGrabber.setPosition(1);
+
+        servoCapstone = opMode.hardwareMap.crservo.get("servoCapstone");
 
         servoFourbarArmL = opMode.hardwareMap.crservo.get("servoFourbarArmL");
         servoFourbarArmR = opMode.hardwareMap.crservo.get("servoFourbarArmR");
@@ -175,7 +179,7 @@ public class SteveBase {
         opMode.telemetry.addLine("Initalizing input devices (sensors)...");
         opMode.telemetry.update();
 
-        sensorColor = opMode.hardwareMap.get(ColorSensor.class, "sensorColor");
+        sensorColor = opMode.hardwareMap.get(DistanceSensor.class, "sensorColor");
 
         foundationTouchL = opMode.hardwareMap.get(DigitalChannel.class, "foundationTouchL");
         foundationTouchR = opMode.hardwareMap.get(DigitalChannel.class, "foundationTouchR");
@@ -194,6 +198,7 @@ public class SteveBase {
         imu.initialize(parameters_IMU);
 
         timerOpMode = new ElapsedTime();
+        timerTravel = new ElapsedTime();
 
         opMode.telemetry.addLine("Initialization Succeeded!");
         opMode.telemetry.update();
@@ -340,9 +345,9 @@ public class SteveBase {
                 phoneXRotate = 90 ;
             }
             // Next, translate the camera lens to where it is on the robot.
-            final float CAMERA_FORWARD_DISPLACEMENT  = -1.0f * mmPerInch;   //sets the phone at the exact front of the robot (code correction for x axis telemetry consistently being off by an inch)
-            final float CAMERA_VERTICAL_DISPLACEMENT = 4.0f * mmPerInch;   //Camera is 4 Inches above ground
-            final float CAMERA_LEFT_DISPLACEMENT     = 3.75f;     //The phone camero is roughly 3.75 inches from the robot's center line. This line cuts the robot in half front to back, rather than left to right
+            final float CAMERA_FORWARD_DISPLACEMENT  = 6f * mmPerInch;   //sets the phone at the exact front of the robot (code correction for x axis telemetry consistently being off by an inch)
+            final float CAMERA_VERTICAL_DISPLACEMENT = 5f * mmPerInch;   // Camera is 4 Inches above ground
+            final float CAMERA_LEFT_DISPLACEMENT     = 8f * mmPerInch;   // SIDE TO SIDE
             OpenGLMatrix robotFromCamera = OpenGLMatrix
                     .translation(CAMERA_FORWARD_DISPLACEMENT, CAMERA_LEFT_DISPLACEMENT, CAMERA_VERTICAL_DISPLACEMENT)
                     .multiplied(Orientation.getRotationMatrix(AxesReference.EXTRINSIC, AxesOrder.YZX, AngleUnit.DEGREES, phoneYRotate, phoneZRotate, phoneXRotate));
@@ -378,8 +383,8 @@ public class SteveBase {
                 // express position (translation) of robot in inches.
                 VectorF translation = lastLocation.getTranslation();
                 opMode.telemetry.addData("X Pos", translation.get(0));
-                if(translation.get(0) / mmPerInch > 4) stonePosition = "RIGHT";
-                else if(translation.get(0) / mmPerInch < -4) stonePosition = "LEFT";
+                if(translation.get(1) / mmPerInch > 4) stonePosition = "RIGHT";
+                else if(translation.get(1) / mmPerInch < -4) stonePosition = "LEFT";
                 else stonePosition = "CENTER";
                 opMode.telemetry.update();
                 break;
@@ -421,7 +426,7 @@ public class SteveBase {
         yPosition -= horizontalDistance * Math.cos(Math.toRadians(robotHeading));
     }
 
-    void travelToPosition(double xTarget, double yTarget, double offsetHeading) {
+    void travelToPosition(double xTarget, double yTarget, double offsetHeading, double... powerMin) {
         updateOdometry(motorDriveLB, motorDriveRB, motorDriveLF);
         lockedHeading = robotHeading + offsetHeading;
         double headingError = lockedHeading - robotHeading;
@@ -450,9 +455,10 @@ public class SteveBase {
                Math.abs(yDelta) > TARGET_POSITION_ACCURACY_IN_INCHES) {
                 // Determines wheel power for each motor based on our base motor power and target X, Y, and Theta values
                 double angleDirection = Math.atan2(yDelta, xDelta) + Math.toRadians(robotHeading) - Math.toRadians(initialHeading);
-                double drivingPower = 0.6;
+                double drivingPower = 0.55;
                 double wheelTrajectory = angleDirection - (Math.PI/4);
-                double powerMod = Math.abs(Math.hypot(xDelta, yDelta)) > 5 ? 1 : 0.4;
+                double powerMod = Math.abs(Math.hypot(xDelta, yDelta)) > 5 ? 1 :
+                                  powerMin.length == 1 ? powerMin[0] : 0.45;
 
                 desiredSpeedLF -= (drivingPower * (Math.cos(wheelTrajectory))) * Math.sqrt(2) * powerMod;
                 desiredSpeedLB -= (drivingPower * (Math.sin(wheelTrajectory))) * Math.sqrt(2) * powerMod;
@@ -479,7 +485,7 @@ public class SteveBase {
             opMode.telemetry.update();
         }
         setDrivePower(0);
-        imuTurn(absoluteHeading(lockedHeading));
+        imuTurn(headingError);
     }
 
     /** Just an angle converter to use in case we ever need to turn to an absolute heading, instead
@@ -505,7 +511,8 @@ public class SteveBase {
         targetHeading += targetHeading > 360 ? -360 :
                          targetHeading < 0 ? 360 : 0;
 
-        while (Math.abs(degreesToTurn) > 2 && ((LinearOpMode)opMode).opModeIsActive()) {
+        timerTravel.reset();
+        while (Math.abs(degreesToTurn) > 2 && ((LinearOpMode)opMode).opModeIsActive() && timerTravel.seconds() <= 2) {
             updateOdometry(motorDriveLB, motorDriveRB, motorDriveLF);
             currentHeading = angles.firstAngle + 180;
             degreesToTurn = targetHeading - currentHeading;
@@ -540,8 +547,8 @@ public class SteveBase {
 
     public void grabFoundation() {
         if(allianceColor.equals("RED")) {
-            travelToPosition(15, 28, 0);
-            travelToPosition(15, 31, 0);
+            travelToPosition(13, 26, 0);
+            travelToPosition(13, 31, 0);
             while(((LinearOpMode)opMode).opModeIsActive() && attemptsToGrabFoundation < 5) {
                 servoFoundationL.setPosition(0);
                 servoFoundationR.setPosition(1);
@@ -554,14 +561,16 @@ public class SteveBase {
                     servoFoundationR.setPosition(0);
                     sleep(600);
                     attemptsToGrabFoundation++;
-                    imuTurn(4);
-                    travelToPosition(15, 31 + (attemptsToGrabFoundation * 1.5), 0);
+                    travelToPosition(13, 31 + (attemptsToGrabFoundation * 1.5), 0);
                 }
             }
-
+            servoFoundationL.setPosition(0);
+            servoFoundationR.setPosition(1);
+            sleep(800);
+            travelToPosition(15, yPosition, 0);
         } else if(allianceColor.equals("BLUE")) {
-            travelToPosition(-15, 28, 0);
-            travelToPosition(-15, 31, 0);
+            travelToPosition(-13, 26, 0);
+            travelToPosition(-13, 31, 0);
             while(((LinearOpMode)opMode).opModeIsActive() && attemptsToGrabFoundation < 5) {
                 servoFoundationL.setPosition(0);
                 servoFoundationR.setPosition(1);
@@ -574,10 +583,13 @@ public class SteveBase {
                     servoFoundationR.setPosition(0);
                     sleep(600);
                     attemptsToGrabFoundation++;
-                    imuTurn(-4);
-                    travelToPosition(-15, 31 + (attemptsToGrabFoundation * 1.5), 0);
+                    travelToPosition(-13, 31 + (attemptsToGrabFoundation * 1.5), 0);
                 }
             }
+            servoFoundationL.setPosition(0);
+            servoFoundationR.setPosition(1);
+            sleep(800);
+            travelToPosition(-15, yPosition, 0);
         }
     }
 
@@ -586,15 +598,15 @@ public class SteveBase {
         if(allianceColor.equals("RED")){
             while (angles.firstAngle > -85 && ((LinearOpMode)opMode).opModeIsActive()){
                 updateOdometry(motorDriveLB, motorDriveRB, motorDriveLF);
-                setDrivePowerSides(1, -.4);
+                setDrivePowerSides(1, -0.4);
             }
-            travelToPosition(2, yPosition, 0);
+            travelToPosition(3, yPosition, 0, 0.4);
         } else if(allianceColor.equals("BLUE")){
             while (angles.firstAngle < 85 && ((LinearOpMode)opMode).opModeIsActive()){
                 updateOdometry(motorDriveLB, motorDriveRB, motorDriveLF);
-                setDrivePowerSides(.4, -1);
+                setDrivePowerSides(0.4, -1);
             }
-            travelToPosition(-4, yPosition, 0);
+            travelToPosition(-4, yPosition, 0, 0.4);
         }
         servoFoundationL.setPosition(1);
         servoFoundationR.setPosition(0);
@@ -603,95 +615,96 @@ public class SteveBase {
 
     public void collectAndScoreSkystones(){
         if(allianceColor.equals("RED")) {
-            travelToPosition(-10, 0, 0);
+            travelToPosition(12, 3, 0);
             lookForSkystones();
             if(stonePosition.equals("LEFT")) {
-                double stonePosX = -39.5;
-                double stonePosY = 0;
-                double skybridgePassingX = parkingPreference.equals("INSIDE") ? -26.5 : -5;
+                double stonePosX = 39.5;
+                double stonePosY = -4;
+                double skybridgePassingX = parkingPreference.equals("INSIDE") ? 26.5 : 5;
 
+                travelToPosition(xPosition, stonePosY, -180);
                 travelToPosition(stonePosX, stonePosY, 0);
                 motorCollectionL.setPower(1);
                 motorCollectionR.setPower(-1);
-                travelToPosition(stonePosX, stonePosY - 4, 0);
+                travelToPosition(stonePosX, stonePosY + 4, 0);
                 sleep(200);
                 motorCollectionL.setPower(0);
                 motorCollectionR.setPower(0);
-                travelToPosition(skybridgePassingX, 10, 180);
-                travelToPosition(skybridgePassingX, 45 ,0);
+                travelToPosition(skybridgePassingX, -16, 180);
+                travelToPosition(skybridgePassingX, -51 ,0);
                 motorCollectionL.setPower(-0.5);
                 motorCollectionR.setPower(0.5);
-                travelToPosition(skybridgePassingX, 10, 0);
-                travelToPosition(stonePosX + 10, stonePosY - 24, -180);
-                travelToPosition(stonePosX, stonePosY - 24, 0);
+                travelToPosition(skybridgePassingX, -16, 0);
+                travelToPosition(stonePosX - 12, stonePosY + 24, -180);
+                travelToPosition(stonePosX, stonePosY + 24, 0);
                 motorCollectionL.setPower(1);
                 motorCollectionR.setPower(-1);
-                travelToPosition(stonePosX, stonePosY - 28, 0);
+                travelToPosition(stonePosX, stonePosY + 28, 0);
                 sleep(200);
                 motorCollectionL.setPower(0);
                 motorCollectionR.setPower(0);
-                travelToPosition(skybridgePassingX, 10, 180);
-                travelToPosition(skybridgePassingX, 45 ,0);
+                travelToPosition(skybridgePassingX, -16, 180);
+                travelToPosition(skybridgePassingX, -51 ,0);
                 motorCollectionL.setPower(-0.5);
                 motorCollectionR.setPower(0.5);
             } else if(stonePosition.equals("CENTER")) {
-                double stonePosX = -39.5;
-                double stonePosY = 8;
-                double skybridgePassingX = parkingPreference.equals("INSIDE") ? -26.5 : -5;
+                double stonePosX = 39.5;
+                double stonePosY = -12;
+                double skybridgePassingX = parkingPreference.equals("INSIDE") ? 26.5 : 5;
 
-                travelToPosition(xPosition, stonePosY, 0);
+                travelToPosition(xPosition, stonePosY, -180);
                 travelToPosition(stonePosX, stonePosY, 0);
                 motorCollectionL.setPower(1);
                 motorCollectionR.setPower(-1);
-                travelToPosition(stonePosX, stonePosY - 4, 0);
+                travelToPosition(stonePosX, stonePosY + 4, 0);
                 sleep(200);
                 motorCollectionL.setPower(0);
                 motorCollectionR.setPower(0);
-                travelToPosition(skybridgePassingX, 10, 180);
-                travelToPosition(skybridgePassingX, 45 ,0);
+                travelToPosition(skybridgePassingX, -16, 180);
+                travelToPosition(skybridgePassingX, -51 ,0);
                 motorCollectionL.setPower(-0.5);
                 motorCollectionR.setPower(0.5);
-                travelToPosition(skybridgePassingX, 10, 0);
-                travelToPosition(stonePosX + 10, stonePosY - 24, -180);
-                travelToPosition(stonePosX, stonePosY - 24, 0);
+                travelToPosition(skybridgePassingX, -16, 0);
+                travelToPosition(stonePosX - 12, stonePosY + 24, -180);
+                travelToPosition(stonePosX, stonePosY + 24, 0);
                 motorCollectionL.setPower(1);
                 motorCollectionR.setPower(-1);
-                travelToPosition(stonePosX, stonePosY - 28, 0);
+                travelToPosition(stonePosX, stonePosY + 28, 0);
                 sleep(200);
                 motorCollectionL.setPower(0);
                 motorCollectionR.setPower(0);
-                travelToPosition(skybridgePassingX, 10, 180);
-                travelToPosition(skybridgePassingX, 45 ,0);
+                travelToPosition(skybridgePassingX, -16, 180);
+                travelToPosition(skybridgePassingX, -51 ,0);
                 motorCollectionL.setPower(-0.5);
                 motorCollectionR.setPower(0.5);
             } else if(stonePosition.equals("RIGHT")) {
-                double stonePosX = -31.5;
-                double stonePosY = 12;
-                double skybridgePassingX = parkingPreference.equals("INSIDE") ? -26.5 : -5;
+                double stonePosX = 31.5;
+                double stonePosY = -16;
+                double skybridgePassingX = parkingPreference.equals("INSIDE") ? 26.5 : 5;
 
-                travelToPosition(xPosition, stonePosY, 0);
-                travelToPosition(stonePosX, stonePosY, -45);
+                travelToPosition(xPosition, stonePosY, -225);
+                travelToPosition(stonePosX, stonePosY, 0);
                 motorCollectionL.setPower(1);
                 motorCollectionR.setPower(-1);
-                travelToPosition(stonePosX - 4, stonePosY - 4, 0);
+                travelToPosition(stonePosX + 6, stonePosY + 6, 0);
                 sleep(200);
                 motorCollectionL.setPower(0);
                 motorCollectionR.setPower(0);
-                travelToPosition(skybridgePassingX, 10, 225);
-                travelToPosition(skybridgePassingX, 45, 0);
+                travelToPosition(skybridgePassingX, -16, 225);
+                travelToPosition(skybridgePassingX, -51, 0);
                 motorCollectionL.setPower(-0.5);
                 motorCollectionR.setPower(0.5);
-                travelToPosition(skybridgePassingX, 10, 0);
-                travelToPosition(stonePosX + 10, stonePosY - 24, -225);
-                travelToPosition(stonePosX, stonePosY - 24, 0);
+                travelToPosition(skybridgePassingX, -16, 0);
+                travelToPosition(stonePosX - 12, stonePosY + 24, -225);
+                travelToPosition(stonePosX, stonePosY + 24, 0);
                 motorCollectionL.setPower(1);
                 motorCollectionR.setPower(-1);
-                travelToPosition(stonePosX - 4, stonePosY - 28, 0);
+                travelToPosition(stonePosX + 6, stonePosY + 30, 0);
                 sleep(200);
                 motorCollectionL.setPower(0);
                 motorCollectionR.setPower(0);
-                travelToPosition(skybridgePassingX, 10, 225);
-                travelToPosition(skybridgePassingX, 45, 0);
+                travelToPosition(skybridgePassingX, -16, 225);
+                travelToPosition(skybridgePassingX, -51, 0);
                 motorCollectionL.setPower(-0.5);
                 motorCollectionR.setPower(0.5);
             }
@@ -794,9 +807,9 @@ public class SteveBase {
         if(scoreSkyStones) {
             if (allianceColor.equals("RED")) {
                 if (parkingPreference.equals("INSIDE")) {
-                    travelToPosition(-30, 35, 0);
+                    travelToPosition(26.5, -35, 0);
                 } else if (parkingPreference.equals("OUTSIDE")) {
-                    travelToPosition(-5, 35, 0);
+                    travelToPosition(5, -35, 0);
                 }
             } else if (allianceColor.equals("BLUE")) {
                 if (parkingPreference.equals("INSIDE")) {
@@ -900,6 +913,14 @@ public class SteveBase {
     public void controlCollection() {//In case of emergency, driver can take over collection controls
         //collect if left trigger pressed
         //needs to be fancified but I don't know how :D
+
+        if (driveCollect == false && opMode.gamepad1.dpad_left){
+            driveCollect = true;
+        }
+        if (driveCollect == true && opMode.gamepad1.dpad_right){
+            driveCollect = false;
+        }
+
         if (driveCollect == true){
             if (opMode.gamepad1.left_trigger > .3)
             {
@@ -962,80 +983,52 @@ public class SteveBase {
         }
     }
 
-
-    public void controlServoClaw() { //Drive and operator both can grab and release the stone
-        if(opMode.gamepad2.y || opMode.gamepad1.y) {
-            servoGrabber.setPosition(1);
-            transfer = TransferState.IDLE; //When we open the grabber, we don't have a stone and we can auto grab
-        }
-        if (opMode.gamepad2.a || opMode.gamepad1.a) {
-            servoGrabber.setPosition(0);
-            transfer = TransferState.GRABBED; //When we have already grabbed a stone, we can't auto grab
-        }
-    }
-
     public void controlLift(double rightStick, double leftStick) { //Control lift motors and linkage servos
         if (opMode.gamepad2.right_bumper){
             motorLiftL.setPower(.05);
             motorLiftR.setPower(.05);
         }
         else {
-            motorLiftL.setPower(-rightStick/2);
-            motorLiftR.setPower(-rightStick/2);
+            if(Math.signum(-rightStick) == -1) {
+                motorLiftL.setPower(-rightStick/2);
+                motorLiftR.setPower(-rightStick/2);
+            } else {
+                motorLiftL.setPower(-rightStick);
+                motorLiftR.setPower(-rightStick);
+            }
         }
 
         servoFourbarArmL.setPower(-leftStick);
         servoFourbarArmR.setPower(leftStick);
     }
 
-    public void decideAutoTransfer(){ //Toggle whether to automatically grab stone or not
+    public void decideAutoTransfer(){
         if (opMode.gamepad2.x && autoTransfer == false){
             autoTransfer = true;
-            buttonPress.reset();
         }
-        if (opMode.gamepad2.x && autoTransfer == true && buttonPress.seconds() > 1){
+        if (opMode.gamepad2.b && autoTransfer == true){
             autoTransfer = false;
         }
     }
 
     public void grabStone(){ //Automatically grab stones once they're in the hopper
 
-        Color.RGBToHSV((int) (sensorColor.red() * SCALE_FACTOR),
-                (int) (sensorColor.green() * SCALE_FACTOR),
-                (int) (sensorColor.blue() * SCALE_FACTOR),
-                hsvValues);
-
-        // send the info back to driver station using telemetry function.
-        opMode.telemetry.addData("Alpha", sensorColor.alpha()); //Show what value we are seeing (for dev purposes)
-        /*opMode.telemetry.addData("Red  ", sensorColor.red());
-        opMode.telemetry.addData("Green", sensorColor.green());
-        opMode.telemetry.addData("Blue ", sensorColor.blue());
-        opMode.telemetry.addData("Hue", hsvValues[0]);*/
-
-        if (sensorColor.alpha() >= 600 && sensorColor.alpha() <= 1740){
+        if (sensorColor.getDistance(DistanceUnit.CM) >= 2){
             opMode.telemetry.addData("State: ", "Empty");
-            hopperState = 0; //If the hopper is empty, don't automatically grab a stone
+            hopperState = 0;
         }
-        if (sensorColor.alpha() >= 9300 && sensorColor.alpha() <= 48000){
-            opMode.telemetry.addData("State: ", "Regular Stone");
-            hopperState = 1; //If there is a stone in the hopper, we are ready to grab
-        }
-        if (sensorColor.alpha() >= 2200 && sensorColor.alpha() <= 8800){
-            opMode.telemetry.addData("State: ", "Skystone"); //We don't really need to tell if we have a skystone vs a stone,
-            hopperState = 1;                                                                            //but it's a nice little feature
+        if (sensorColor.getDistance(DistanceUnit.CM) < 2){
+            opMode.telemetry.addData("State: ", "Stone");
+            hopperState = 1;
         }
         opMode.telemetry.update();
 
         switch(transfer.ordinal())  {
             case 0:
-                //If there is a stone in the hopper,
-                //it hasn't already grabbed something,
-                //and we want to collect automatically,
-                //enter the state machine to automatically grab it
-                if (hopperState == 1 && transfer == TransferState.IDLE && autoTransfer == true){
-                    transfer = TransferState.LOWERING_LINKAGE;
-                    transferTimer.reset();
-                }
+                if (hopperState == 1 && transfer == TransferState.IDLE && autoTransfer == true){ //If there is a stone in the hopper,
+                    transfer = TransferState.LOWERING_LINKAGE;                                   //it hasn't already grabbed something,
+                    transferTimer.reset();                                                       // and we want to collect automatically,
+                }                                                                                //enter the state machine to automatically grab it
                 break;
             case 1:
                 servoFourbarArmL.setPower(-.3);
@@ -1056,6 +1049,29 @@ public class SteveBase {
         }
     }
 
+    public void controlServoClaw(){
+        if(opMode.gamepad2.y || opMode.gamepad1.y) {
+            servoGrabber.setPosition(1);
+            transfer = TransferState.IDLE; //When we open the grabber, we don't have a stone and we can auto grab
+        }
+        if (opMode.gamepad2.a || opMode.gamepad1.a) {
+            servoGrabber.setPosition(0);
+            transfer = TransferState.GRABBED; //When we have already grabbed a stone, we can't auto grab
+        }
+    }
+
+    public void controlCap(){
+        if (opMode.gamepad1.dpad_up){
+            servoCapstone.setPower(1);
+        }
+        else if (opMode.gamepad1.dpad_down){
+            servoCapstone.setPower(-1);
+        }
+        else {
+            servoCapstone.setPower(0);
+        }
+    }
+
     public void switchCollection(){
         if (driveCollect == false && opMode.gamepad1.dpad_up){
             driveCollect = true;
@@ -1067,9 +1083,11 @@ public class SteveBase {
 
     public void postTelemetry() {
         opMode.telemetry.addData("Running for...", timerOpMode.seconds());
+        opMode.telemetry.addData("autoTransfer: ", "" + autoTransfer);
         opMode.telemetry.addData("Lift State", transfer);
         opMode.telemetry.addData("Who owns collection?", driveCollect ? "Driver" : "Operator");
         opMode.telemetry.addData("Foundation Grabbed?", isFoundationGrabbed());
+        opMode.telemetry.update();
     }
 
 }

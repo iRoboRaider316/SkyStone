@@ -20,6 +20,5 @@ public class SteveAutonomous extends LinearOpMode {
             steve.collectAndScoreSkystones();
         }
         steve.driveToSkybridge();
-
     }
 }
