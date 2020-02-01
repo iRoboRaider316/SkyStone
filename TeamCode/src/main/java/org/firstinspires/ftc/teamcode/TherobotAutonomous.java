@@ -1,8 +1,10 @@
 package org.firstinspires.ftc.teamcode;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
+import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 
 @Autonomous(name="The Robot Autonomous", group="LinearOpMode")
+@Disabled
 public class TherobotAutonomous extends LinearOpMode {
     public TherobotBase therobot;
     @Override
