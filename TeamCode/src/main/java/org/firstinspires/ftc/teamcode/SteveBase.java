@@ -54,6 +54,7 @@ public class SteveBase {
     CRServo servoFourbarArmR;
     CRServo servoPark;
     DistanceSensor sensorColor;
+    ColorSensor sensorSkystones;
     DigitalChannel foundationTouchR;
     DigitalChannel foundationTouchL;
 
@@ -62,7 +63,6 @@ public class SteveBase {
     File headingFile = AppUtil.getInstance().getSettingsFile("headingFile");
 
     ElapsedTime timerOpMode;
-    ElapsedTime timerVuforia;
     ElapsedTime timerTravel;
     public ElapsedTime buttonPress = new ElapsedTime();
     public ElapsedTime transferTimer = new ElapsedTime();
@@ -78,22 +78,8 @@ public class SteveBase {
     String parkingPreference;
     boolean pushingFoundation = false;
 
-    String stonePosition = "";
-    private static final VuforiaLocalizer.CameraDirection CAMERA_CHOICE = VuforiaLocalizer.CameraDirection.BACK;
-    private static final boolean PHONE_IS_PORTRAIT = false ;
-    private static final String VUFORIA_KEY = "AeWAmTv/////AAABmcDFtEigK0pigJ8ZWUnm2HgudbXBqZsQ1JV4hkpYHzTSmzjlzztp8vSTsCHrkv+Aao5MuxVg8A+4f4XqpTTNO2OhMu7IDFXkMyn9dSe1EEI6CbGWpnH3fc1dpDCa4JsPI6CmeG1IVGm2L8WrKCTJscnbh4mNnWzphUs1L3AH3Tr1IFe3hVRgPgCzkB/gnbRdK78TDhYe7gnmnrxSSNHUdBOh452wvyQ7L8MZqs5Oy5YOUE9f+0M4npSKdHtw1Q8hxtGiVCqbcqG5lmyoZh4ueh5anG71LLpBAxDkPnCYw8ycGPBIsI+bEvWydpCkwB9snYru2lVh4RRYU8H0bAx2G8/KrLkuO9zNTBjamQfqJmcJ";
-    private static final float mmPerInch = 25.4f;
-    // Constant for Stone Target
-    private static final float stoneZ = 2.00f * mmPerInch;  //height of the center of the stone target off the ground
-    // Class Members
-    private OpenGLMatrix lastLocation = null;
-    private VuforiaLocalizer vuforia = null;
-    private boolean targetVisible = false;
-    private float phoneXRotate    = 0;
-    private float phoneYRotate    = 0;
-    private float phoneZRotate    = 0;
-    VuforiaTrackables targetsSkyStone;
-    List<VuforiaTrackable> allTrackables;
+    String skystonePosition = "";
+    String[] skystonePositions = {"LEFT", "CENTER", "RIGHT"};
 
     double leftWheelTickDelta = 0;
     double rightWheelTickDelta = 0;
@@ -112,18 +98,15 @@ public class SteveBase {
     boolean driveCollect = false;
     boolean autoTransfer = true;
     int hopperState = 0;
-    float hsvValues[] = {0F, 0F, 0F};
-    final double SCALE_FACTOR = 255;
 
     double ENCODER_CPR = 360;
     double WHEEL_CURCUMFERENCE = 2.28;
     double COUNTS_PER_INCH = ENCODER_CPR / WHEEL_CURCUMFERENCE;
-    int ENCODER_DRIVE_ALLOWABLE_ERROR = 20;
     double STARTING_HEADING = 0;
     double STRAFE_WHEEL_OFFSET_CONSTANT = 354; // Unit = DISTANCE / ANGLE
-
     double TARGET_POSITION_ACCURACY_IN_INCHES = 0.5;
     double TARGET_HEADING_ACCURACY_IN_DEGREES = 2;
+    double SKYSTONE_DETECTION_THRESHHOLD = 200;
 
     private enum TransferState {
         IDLE, LOWERING_LINKAGE, GRABBING, GRABBED;
@@ -180,6 +163,7 @@ public class SteveBase {
         opMode.telemetry.update();
 
         sensorColor = opMode.hardwareMap.get(DistanceSensor.class, "sensorColor");
+        sensorSkystones = opMode.hardwareMap.get(ColorSensor.class, "sensorSkystones");
 
         foundationTouchL = opMode.hardwareMap.get(DigitalChannel.class, "foundationTouchL");
         foundationTouchR = opMode.hardwareMap.get(DigitalChannel.class, "foundationTouchR");
@@ -243,9 +227,7 @@ public class SteveBase {
 
     public boolean isFoundationGrabbed() {
         // Since getState() returns false for pressed and true for not pressed, we had to apply some logic inverters to return results that make sense.
-        return (!foundationTouchL.getState() || !foundationTouchR.getState())
-                &&
-                servoFoundationL.getPosition() == 0 && servoFoundationR.getPosition() == 1;
+        return (!foundationTouchL.getState() || !foundationTouchR.getState());
     }
 
     /* =======================AUTONOMOUS EXCLUSIVE METHODS========================= */
@@ -304,7 +286,7 @@ public class SteveBase {
         opMode.telemetry.addData("Move Foundation in Auto?", pushingFoundation);
         opMode.telemetry.update();
 
-        if(scoreSkyStones) {
+        /*if(scoreSkyStones) {
             int cameraMonitorViewId = opMode.hardwareMap.appContext.getResources().getIdentifier("cameraMonitorViewId", "id", opMode.hardwareMap.appContext.getPackageName());
             VuforiaLocalizer.Parameters parameters = new VuforiaLocalizer.Parameters(cameraMonitorViewId);
             parameters.vuforiaLicenseKey = VUFORIA_KEY;
@@ -317,13 +299,13 @@ public class SteveBase {
             stoneTarget.setName("Stone Target");
             allTrackables = new ArrayList<>();
             allTrackables.addAll(targetsSkyStone);
-            /**
+            *//**
              * If you are standing in the Red Alliance Station looking towards the center of the field,
              *     - The X axis runs from your left to the right. (positive from the center to the right)
              *     - The Y axis runs from the Red Alliance Station towards the other side of the field
              *       where the Blue Alliance Station is. (Positive is from the center, towards the BlueAlliance station)
              *     - The Z axis runs from the floor, upwards towards the ceiling.  (Positive is above the floor)
-             */
+             *//*
             // Set the position of the Stone Target.  Assume it's at the field origin. Rotated it to face forward, and raised it to sit on the ground correctly.
             stoneTarget.setLocation(OpenGLMatrix
                     .translation(0, 0, stoneZ)
@@ -351,48 +333,11 @@ public class SteveBase {
             OpenGLMatrix robotFromCamera = OpenGLMatrix
                     .translation(CAMERA_FORWARD_DISPLACEMENT, CAMERA_LEFT_DISPLACEMENT, CAMERA_VERTICAL_DISPLACEMENT)
                     .multiplied(Orientation.getRotationMatrix(AxesReference.EXTRINSIC, AxesOrder.YZX, AngleUnit.DEGREES, phoneYRotate, phoneZRotate, phoneXRotate));
-            /**  Let all the trackable listeners know where the phone is.  */
+            *//**  Let all the trackable listeners know where the phone is.  *//*
             for (VuforiaTrackable trackable : allTrackables) {
                 ((VuforiaTrackableDefaultListener) trackable.getListener()).setPhoneInformation(robotFromCamera, parameters.cameraDirection);
             }
-        }
-    }
-
-    void lookForSkystones() {
-        targetsSkyStone.activate();
-        timerVuforia.reset();
-        //CameraDevice.getInstance().setFlashTorchMode(true); //turns on the flashlight. Commented out cuz turning on the flashlight wasn't helping
-        while (!((LinearOpMode)opMode).isStopRequested() && timerVuforia.seconds() <= 3) {
-            // check all the trackable targets to see which one (if any) is visible.
-            targetVisible = false;
-            for (VuforiaTrackable trackable : allTrackables) {
-                if (((VuforiaTrackableDefaultListener)trackable.getListener()).isVisible()) {
-                    opMode.telemetry.addData("Visible Target", trackable.getName());
-                    targetVisible = true;
-                    // getUpdatedRobotLocation() will return null if no new information is available since
-                    // the last time that call was made, or if the trackable is not currently visible.
-                    OpenGLMatrix robotLocationTransform = ((VuforiaTrackableDefaultListener)trackable.getListener()).getUpdatedRobotLocation();
-                    if (robotLocationTransform != null) {
-                        lastLocation = robotLocationTransform;
-                    }
-                    break;
-                }
-            }
-            // Provide feedback as to where the robot is located (if we know).
-            if (targetVisible) {
-                // express position (translation) of robot in inches.
-                VectorF translation = lastLocation.getTranslation();
-                opMode.telemetry.addData("X Pos", translation.get(0));
-                if(translation.get(1) / mmPerInch > 4) stonePosition = "RIGHT";
-                else if(translation.get(1) / mmPerInch < -4) stonePosition = "LEFT";
-                else stonePosition = "CENTER";
-                opMode.telemetry.update();
-                break;
-            }
-        targetsSkyStone.deactivate();
-        if(stonePosition.equals("")) stonePosition = "CENTER";
-        //CameraDevice.getInstance().setFlashTorchMode(false); //this turns off the flashlight. Commented out cuz I don't currently turn on the flashlight
-        }
+        }*/
     }
 
     public void updateOdometry(DcMotor encoderLeft, DcMotor encoderRight, DcMotor encoderStrafe) {
@@ -424,14 +369,19 @@ public class SteveBase {
         // Position Update for the horizontal encoder wheel
         xPosition += horizontalDistance * Math.sin(Math.toRadians(robotHeading));
         yPosition -= horizontalDistance * Math.cos(Math.toRadians(robotHeading));
+
+        double robotSpeedInFPS = Math.hypot(horizontalDistance, verticalDistance) / (timerTravel.seconds() * 12);
+        opMode.telemetry.addData("Robot Speed in Feet per Second", robotSpeedInFPS);
     }
 
-    void travelToPosition(double xTarget, double yTarget, double offsetHeading, double... powerMin) {
+    void travelToPosition(double xTarget, double yTarget, double offsetHeading, double... powerMinAndMax) {
         updateOdometry(motorDriveLB, motorDriveRB, motorDriveLF);
         lockedHeading = robotHeading + offsetHeading;
         double headingError = lockedHeading - robotHeading;
         double xDelta = -xTarget + xPosition;
         double yDelta = yTarget - yPosition;
+        double headingBound = lockedHeading + 180;
+
         while(((Math.abs(xDelta) > TARGET_POSITION_ACCURACY_IN_INCHES ||
               Math.abs(yDelta) > TARGET_POSITION_ACCURACY_IN_INCHES) &&
               ((LinearOpMode)opMode).opModeIsActive())) {
@@ -439,12 +389,8 @@ public class SteveBase {
             xDelta = -xTarget + xPosition;
             yDelta = yTarget - yPosition;
             headingError = lockedHeading - robotHeading;
-            // If the robot tries to turn to a heading that is right at the turnaround from -180 to
-            // 180, it will keep spinning if it goes just barely over. That's why the turnaround has
-            // been shifted to such strange values - it's very unlikely that we would need to turn
-            // to such headings.
-            headingError += headingError > 160 ? -360 :
-                            headingError < -200 ? 360 : 0;
+            headingError += headingError > headingBound ? -360 :
+                            headingError < headingBound - 360 ? 360 : 0;
 
             double desiredSpeedLF = 0;
             double desiredSpeedLB = 0;
@@ -458,7 +404,7 @@ public class SteveBase {
                 double drivingPower = 0.55;
                 double wheelTrajectory = angleDirection - (Math.PI/4);
                 double powerMod = Math.abs(Math.hypot(xDelta, yDelta)) > 5 ? 1 :
-                                  powerMin.length == 1 ? powerMin[0] : 0.45;
+                                  powerMinAndMax.length == 1 ? powerMinAndMax[0] : 0.45;
 
                 desiredSpeedLF -= (drivingPower * (Math.cos(wheelTrajectory))) * Math.sqrt(2) * powerMod;
                 desiredSpeedLB -= (drivingPower * (Math.sin(wheelTrajectory))) * Math.sqrt(2) * powerMod;
@@ -475,14 +421,6 @@ public class SteveBase {
             }
 
             setDrivePowerMotors(desiredSpeedLF, desiredSpeedLB, desiredSpeedRF, desiredSpeedRB);
-
-            opMode.telemetry.addData("heading", robotHeading);
-            opMode.telemetry.addData("headingError", headingError);
-            opMode.telemetry.addData("xDelta", xDelta);
-            opMode.telemetry.addData("yDelta", yDelta);
-            opMode.telemetry.addData("xTarget", xTarget);
-            opMode.telemetry.addData("yTarget", yTarget);
-            opMode.telemetry.update();
         }
         setDrivePower(0);
         imuTurn(headingError);
@@ -532,27 +470,24 @@ public class SteveBase {
             opMode.telemetry.addData("position RB", motorDriveRB.getCurrentPosition());
             opMode.telemetry.update();
         }
-
-        opMode.telemetry.addData("DegreesToTurn", degreesToTurn);
-        opMode.telemetry.addData("Target", targetHeading);
-        opMode.telemetry.addData("Current", currentHeading);
-        opMode.telemetry.addData("position LF", motorDriveLF.getCurrentPosition());
-        opMode.telemetry.addData("position LB", motorDriveLB.getCurrentPosition());
-        opMode.telemetry.addData("position RF", motorDriveRF.getCurrentPosition());
-        opMode.telemetry.addData("position RB", motorDriveRB.getCurrentPosition());
-        opMode.telemetry.update();
         setDrivePower(0);
         sleep(100);
+        // Using the power of recursion, we can keep calling this method to account for errors in turning.
+        if(Math.abs(degreesToTurn) > 2 && ((LinearOpMode)opMode).opModeIsActive()) {
+            imuTurn(degreesToTurn);
+        }
     }
 
     public void grabFoundation() {
         if(allianceColor.equals("RED")) {
             travelToPosition(13, 26, 0);
             travelToPosition(13, 31, 0);
-            while(((LinearOpMode)opMode).opModeIsActive() && attemptsToGrabFoundation < 5) {
+            while(((LinearOpMode)opMode).opModeIsActive() && attemptsToGrabFoundation < 6 && timerOpMode.seconds() < 29) {
                 servoFoundationL.setPosition(0);
                 servoFoundationR.setPosition(1);
+                attemptsToGrabFoundation++;
                 sleep(1000);
+                travelToPosition(13, 31 + (attemptsToGrabFoundation * 2), 0);
                 if(isFoundationGrabbed()) {
                     break;
                 }
@@ -561,20 +496,23 @@ public class SteveBase {
                     servoFoundationR.setPosition(0);
                     sleep(600);
                     attemptsToGrabFoundation++;
-                    travelToPosition(13, 31 + (attemptsToGrabFoundation * 1.5), 0);
+                    travelToPosition(13, 31 + (attemptsToGrabFoundation * 2), 0);
                 }
             }
             servoFoundationL.setPosition(0);
             servoFoundationR.setPosition(1);
             sleep(800);
             travelToPosition(15, yPosition, 0);
+            travelToPosition(15, 31, 0, 0.35);
         } else if(allianceColor.equals("BLUE")) {
             travelToPosition(-13, 26, 0);
             travelToPosition(-13, 31, 0);
-            while(((LinearOpMode)opMode).opModeIsActive() && attemptsToGrabFoundation < 5) {
+            while(((LinearOpMode)opMode).opModeIsActive() && attemptsToGrabFoundation < 6 && timerOpMode.seconds() < 29) {
                 servoFoundationL.setPosition(0);
                 servoFoundationR.setPosition(1);
                 sleep(1000);
+                attemptsToGrabFoundation++;
+                travelToPosition(-13, 31 + (attemptsToGrabFoundation * 2), 0);
                 if(isFoundationGrabbed()) {
                     break;
                 }
@@ -583,135 +521,157 @@ public class SteveBase {
                     servoFoundationR.setPosition(0);
                     sleep(600);
                     attemptsToGrabFoundation++;
-                    travelToPosition(-13, 31 + (attemptsToGrabFoundation * 1.5), 0);
+                    travelToPosition(-13, 31 + (attemptsToGrabFoundation * 2), 0);
                 }
             }
             servoFoundationL.setPosition(0);
             servoFoundationR.setPosition(1);
             sleep(800);
             travelToPosition(-15, yPosition, 0);
+            travelToPosition(-15, 31, 0, 0.35);
         }
     }
 
     public void turnAndScoreFoundation(){
         angles = imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
         if(allianceColor.equals("RED")){
-            while (angles.firstAngle > -85 && ((LinearOpMode)opMode).opModeIsActive()){
+            while (angles.firstAngle > -85 && ((LinearOpMode)opMode).opModeIsActive() && timerOpMode.seconds() < 29){
                 updateOdometry(motorDriveLB, motorDriveRB, motorDriveLF);
-                setDrivePowerSides(1, -0.4);
+                setDrivePowerSides(1, -0.3);
             }
-            travelToPosition(3, yPosition, 0, 0.4);
+            travelToPosition(3, 5, 0, 0.4);
         } else if(allianceColor.equals("BLUE")){
-            while (angles.firstAngle < 85 && ((LinearOpMode)opMode).opModeIsActive()){
+            while (angles.firstAngle < 85 && ((LinearOpMode)opMode).opModeIsActive() && timerOpMode.seconds() < 29){
                 updateOdometry(motorDriveLB, motorDriveRB, motorDriveLF);
-                setDrivePowerSides(0.4, -1);
+                setDrivePowerSides(0.3, -1);
             }
-            travelToPosition(-4, yPosition, 0, 0.4);
+            travelToPosition(-4, 5, 0, 0.4);
         }
         servoFoundationL.setPosition(1);
         servoFoundationR.setPosition(0);
         sleep(600);
     }
 
-    public void collectAndScoreSkystones(){
+    void lookForSkystones() {
         if(allianceColor.equals("RED")) {
-            travelToPosition(12, 3, 0);
-            lookForSkystones();
-            if(stonePosition.equals("LEFT")) {
-                double stonePosX = 39.5;
-                double stonePosY = -4;
-                double skybridgePassingX = parkingPreference.equals("INSIDE") ? 26.5 : 5;
+            for(int position = 0; position < 3; position++) { // Going from left to right
+                travelToPosition(-28.5, -4 + (8 * position), 0);
+                if(sensorSkystones.alpha() < SKYSTONE_DETECTION_THRESHHOLD) {
+                    skystonePosition = skystonePositions[position];
+                    return;
+                }
+            }
+            // If Skystone isn't found, just grab the left stone because it's the easiest to intake.
+            skystonePosition = "LEFT";
+        } else if(allianceColor.equals("BLUE")) {
+            for(int position = 2; position > -1; position--) { // Going from right to left
+                travelToPosition(28.5, 4 - (8 * position), 0);
+                if(sensorSkystones.alpha() < SKYSTONE_DETECTION_THRESHHOLD) {
+                    skystonePosition = skystonePositions[position];
+                    return;
+                }
+            }
+            // If Skystone isn't found, just grab the right stone because it's the easiest to intake.
+            skystonePosition = "RIGHT";
+        }
+    }
 
-                travelToPosition(xPosition, stonePosY, -180);
+    public void collectAndScoreSkystones(){
+        lookForSkystones();
+        if(allianceColor.equals("RED")) {
+            if(skystonePosition.equals("LEFT")) {
+                double stonePosX = -39.5;
+                double stonePosY = 8;
+                double skybridgePassingX = parkingPreference.equals("INSIDE") ? -26.5 : -5;
+
+                travelToPosition(xPosition, stonePosY, 0);
                 travelToPosition(stonePosX, stonePosY, 0);
                 motorCollectionL.setPower(1);
                 motorCollectionR.setPower(-1);
-                travelToPosition(stonePosX, stonePosY + 4, 0);
+                travelToPosition(stonePosX, stonePosY - 4, 0);
                 sleep(200);
                 motorCollectionL.setPower(0);
                 motorCollectionR.setPower(0);
-                travelToPosition(skybridgePassingX, -16, 180);
-                travelToPosition(skybridgePassingX, -51 ,0);
+                travelToPosition(skybridgePassingX, 16, 180);
+                travelToPosition(skybridgePassingX, 51 ,0);
                 motorCollectionL.setPower(-0.5);
                 motorCollectionR.setPower(0.5);
-                travelToPosition(skybridgePassingX, -16, 0);
-                travelToPosition(stonePosX - 12, stonePosY + 24, -180);
-                travelToPosition(stonePosX, stonePosY + 24, 0);
+                travelToPosition(skybridgePassingX, 16, 0);
+                travelToPosition(stonePosX + 12, stonePosY - 24, -180);
+                travelToPosition(stonePosX, stonePosY - 24, 0);
                 motorCollectionL.setPower(1);
                 motorCollectionR.setPower(-1);
-                travelToPosition(stonePosX, stonePosY + 28, 0);
+                travelToPosition(stonePosX, stonePosY - 28, 0);
                 sleep(200);
                 motorCollectionL.setPower(0);
                 motorCollectionR.setPower(0);
-                travelToPosition(skybridgePassingX, -16, 180);
-                travelToPosition(skybridgePassingX, -51 ,0);
+                travelToPosition(skybridgePassingX, 16, 180);
+                travelToPosition(skybridgePassingX, 51 ,0);
                 motorCollectionL.setPower(-0.5);
                 motorCollectionR.setPower(0.5);
-            } else if(stonePosition.equals("CENTER")) {
-                double stonePosX = 39.5;
-                double stonePosY = -12;
-                double skybridgePassingX = parkingPreference.equals("INSIDE") ? 26.5 : 5;
+            } else if(skystonePosition.equals("CENTER")) {
+                double stonePosX = -39.5;
+                double stonePosY = 16;
+                double skybridgePassingX = parkingPreference.equals("INSIDE") ? -26.5 : -5;
 
-                travelToPosition(xPosition, stonePosY, -180);
+                travelToPosition(xPosition, stonePosY, 0);
                 travelToPosition(stonePosX, stonePosY, 0);
                 motorCollectionL.setPower(1);
                 motorCollectionR.setPower(-1);
-                travelToPosition(stonePosX, stonePosY + 4, 0);
+                travelToPosition(stonePosX, stonePosY - 4, 0);
                 sleep(200);
                 motorCollectionL.setPower(0);
                 motorCollectionR.setPower(0);
-                travelToPosition(skybridgePassingX, -16, 180);
-                travelToPosition(skybridgePassingX, -51 ,0);
+                travelToPosition(skybridgePassingX, 16, 180);
+                travelToPosition(skybridgePassingX, 51 ,0);
                 motorCollectionL.setPower(-0.5);
                 motorCollectionR.setPower(0.5);
-                travelToPosition(skybridgePassingX, -16, 0);
-                travelToPosition(stonePosX - 12, stonePosY + 24, -180);
-                travelToPosition(stonePosX, stonePosY + 24, 0);
+                travelToPosition(skybridgePassingX, 16, 0);
+                travelToPosition(stonePosX + 12, stonePosY - 24, -180);
+                travelToPosition(stonePosX, stonePosY - 24, 0);
                 motorCollectionL.setPower(1);
                 motorCollectionR.setPower(-1);
-                travelToPosition(stonePosX, stonePosY + 28, 0);
+                travelToPosition(stonePosX, stonePosY - 28, 0);
                 sleep(200);
                 motorCollectionL.setPower(0);
                 motorCollectionR.setPower(0);
-                travelToPosition(skybridgePassingX, -16, 180);
-                travelToPosition(skybridgePassingX, -51 ,0);
+                travelToPosition(skybridgePassingX, 16, 180);
+                travelToPosition(skybridgePassingX, 51 ,0);
                 motorCollectionL.setPower(-0.5);
                 motorCollectionR.setPower(0.5);
-            } else if(stonePosition.equals("RIGHT")) {
-                double stonePosX = 31.5;
-                double stonePosY = -16;
-                double skybridgePassingX = parkingPreference.equals("INSIDE") ? 26.5 : 5;
+            } else if(skystonePosition.equals("RIGHT")) {
+                double stonePosX = -31.5;
+                double stonePosY = 20;
+                double skybridgePassingX = parkingPreference.equals("INSIDE") ? -26.5 : -5;
 
-                travelToPosition(xPosition, stonePosY, -225);
+                travelToPosition(xPosition, stonePosY, -45);
                 travelToPosition(stonePosX, stonePosY, 0);
                 motorCollectionL.setPower(1);
                 motorCollectionR.setPower(-1);
-                travelToPosition(stonePosX + 6, stonePosY + 6, 0);
+                travelToPosition(stonePosX - 6, stonePosY - 6, 0);
                 sleep(200);
                 motorCollectionL.setPower(0);
                 motorCollectionR.setPower(0);
-                travelToPosition(skybridgePassingX, -16, 225);
-                travelToPosition(skybridgePassingX, -51, 0);
+                travelToPosition(skybridgePassingX, 16, 225);
+                travelToPosition(skybridgePassingX, 51, 0);
                 motorCollectionL.setPower(-0.5);
                 motorCollectionR.setPower(0.5);
-                travelToPosition(skybridgePassingX, -16, 0);
-                travelToPosition(stonePosX - 12, stonePosY + 24, -225);
-                travelToPosition(stonePosX, stonePosY + 24, 0);
+                travelToPosition(skybridgePassingX, 16, 0);
+                travelToPosition(stonePosX + 12, stonePosY - 24, -225);
+                travelToPosition(stonePosX, stonePosY - 24, 0);
                 motorCollectionL.setPower(1);
                 motorCollectionR.setPower(-1);
-                travelToPosition(stonePosX + 6, stonePosY + 30, 0);
+                travelToPosition(stonePosX - 6, stonePosY - 30, 0);
                 sleep(200);
                 motorCollectionL.setPower(0);
                 motorCollectionR.setPower(0);
-                travelToPosition(skybridgePassingX, -16, 225);
-                travelToPosition(skybridgePassingX, -51, 0);
+                travelToPosition(skybridgePassingX, 16, 225);
+                travelToPosition(skybridgePassingX, 51, 0);
                 motorCollectionL.setPower(-0.5);
                 motorCollectionR.setPower(0.5);
             }
         } else if(allianceColor.equals("BLUE")) {
-            travelToPosition(10, 0, 0);
-            lookForSkystones();
-            if (stonePosition.equals("LEFT")) {
+            if (skystonePosition.equals("LEFT")) {
                 double stonePosX = 39.5;
                 double stonePosY = 0;
                 double skybridgePassingX = parkingPreference.equals("INSIDE") ? 26.5 : 5;
@@ -740,7 +700,7 @@ public class SteveBase {
                 travelToPosition(skybridgePassingX, 45, 0);
                 motorCollectionL.setPower(-0.5);
                 motorCollectionR.setPower(0.5);
-            } else if (stonePosition.equals("CENTER")) {
+            } else if (skystonePosition.equals("CENTER")) {
                 double stonePosX = 39.5;
                 double stonePosY = 8;
                 double skybridgePassingX = parkingPreference.equals("INSIDE") ? 26.5 : 5;
@@ -770,7 +730,7 @@ public class SteveBase {
                 travelToPosition(skybridgePassingX, 45, 0);
                 motorCollectionL.setPower(-0.5);
                 motorCollectionR.setPower(0.5);
-            } else if (stonePosition.equals("RIGHT")) {
+            } else if (skystonePosition.equals("RIGHT")) {
                 double stonePosX = 31.5;
                 double stonePosY = 12;
                 double skybridgePassingX = parkingPreference.equals("INSIDE") ? 26.5 : 5;
@@ -804,37 +764,40 @@ public class SteveBase {
     }
 
     public void driveToSkybridge() {
-        if(scoreSkyStones) {
-            if (allianceColor.equals("RED")) {
-                if (parkingPreference.equals("INSIDE")) {
-                    travelToPosition(26.5, -35, 0);
-                } else if (parkingPreference.equals("OUTSIDE")) {
-                    travelToPosition(5, -35, 0);
+        if(timerOpMode.seconds() < 29) {
+            if(scoreSkyStones) {
+                if (allianceColor.equals("RED")) {
+                    if (parkingPreference.equals("INSIDE")) {
+                        travelToPosition(26.5, -35, 0);
+                    } else if (parkingPreference.equals("OUTSIDE")) {
+                        travelToPosition(5, -35, 0);
+                    }
+                } else if (allianceColor.equals("BLUE")) {
+                    if (parkingPreference.equals("INSIDE")) {
+                        travelToPosition(30, 35, 0);
+                    } else if (parkingPreference.equals("OUTSIDE")) {
+                        travelToPosition(5, 35, 0);
+                    }
                 }
-            } else if (allianceColor.equals("BLUE")) {
-                if (parkingPreference.equals("INSIDE")) {
-                    travelToPosition(30, 35, 0);
-                } else if (parkingPreference.equals("OUTSIDE")) {
-                    travelToPosition(5, 35, 0);
-                }
-            }
-        } else {
-            if (allianceColor.equals("RED")) {
-                if (parkingPreference.equals("INSIDE")) {
-                    travelToPosition(-20, 31, 0);
-                    travelToPosition(-40, 31, 0);
-                } else if (parkingPreference.equals("OUTSIDE")) {
-                    travelToPosition(-40, 6, 0);
-                }
-            } else if (allianceColor.equals("BLUE")) {
-                if (parkingPreference.equals("INSIDE")) {
-                    travelToPosition(20, 31, 0);
-                    travelToPosition(40, 31, 0);
-                } else if (parkingPreference.equals("OUTSIDE")) {
-                    travelToPosition(40, 5, 0);
+            } else {
+                if (allianceColor.equals("RED")) {
+                    if (parkingPreference.equals("INSIDE")) {
+                        travelToPosition(-20, 31, 0);
+                        travelToPosition(-40, 31, 0);
+                    } else if (parkingPreference.equals("OUTSIDE")) {
+                        travelToPosition(-40, 6, 0);
+                    }
+                } else if (allianceColor.equals("BLUE")) {
+                    if (parkingPreference.equals("INSIDE")) {
+                        travelToPosition(18, 31, 0);
+                        travelToPosition(35, 31, 0);
+                    } else if (parkingPreference.equals("OUTSIDE")) {
+                        travelToPosition(35, 5, 0);
+                    }
                 }
             }
         }
+
 
     }
 
@@ -845,7 +808,7 @@ public class SteveBase {
 
     public void storeHeading(){
         angles = imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.RADIANS);
-        ReadWriteFile.writeFile(headingFile, String.valueOf(angles.firstAngle));
+        ReadWriteFile.writeFile(headingFile, String.valueOf(-angles.firstAngle));
         opMode.telemetry.addData("headingFile", "" + ReadWriteFile.readFile(headingFile)); //Store robot heading to phone
         opMode.telemetry.update();
     }
@@ -989,10 +952,10 @@ public class SteveBase {
             motorLiftR.setPower(.05);
         }
         else {
-            if(Math.signum(-rightStick) == -1) {
+            if(Math.signum(-rightStick) == -1) { // Down
                 motorLiftL.setPower(-rightStick/2);
                 motorLiftR.setPower(-rightStick/2);
-            } else {
+            } else {                             // Up
                 motorLiftL.setPower(-rightStick);
                 motorLiftR.setPower(-rightStick);
             }
@@ -1082,6 +1045,8 @@ public class SteveBase {
     }
 
     public void postTelemetry() {
+        updateOdometry(motorDriveLB, motorDriveRB, motorDriveLF);
+        opMode.telemetry.addLine();
         opMode.telemetry.addData("Running for...", timerOpMode.seconds());
         opMode.telemetry.addData("autoTransfer: ", "" + autoTransfer);
         opMode.telemetry.addData("Lift State", transfer);
