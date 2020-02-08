@@ -285,59 +285,6 @@ public class SteveBase {
         opMode.telemetry.addData("Score SkyStone in Auto?", scoreSkyStones);
         opMode.telemetry.addData("Move Foundation in Auto?", pushingFoundation);
         opMode.telemetry.update();
-
-        /*if(scoreSkyStones) {
-            int cameraMonitorViewId = opMode.hardwareMap.appContext.getResources().getIdentifier("cameraMonitorViewId", "id", opMode.hardwareMap.appContext.getPackageName());
-            VuforiaLocalizer.Parameters parameters = new VuforiaLocalizer.Parameters(cameraMonitorViewId);
-            parameters.vuforiaLicenseKey = VUFORIA_KEY;
-            parameters.cameraDirection   = CAMERA_CHOICE;
-            //  Instantiate the Vuforia engine
-            vuforia = ClassFactory.getInstance().createVuforia(parameters);
-            // Load the data sets for the trackable objects.
-            targetsSkyStone = this.vuforia.loadTrackablesFromAsset("Skystone");
-            VuforiaTrackable stoneTarget = targetsSkyStone.get(0);
-            stoneTarget.setName("Stone Target");
-            allTrackables = new ArrayList<>();
-            allTrackables.addAll(targetsSkyStone);
-            *//**
-             * If you are standing in the Red Alliance Station looking towards the center of the field,
-             *     - The X axis runs from your left to the right. (positive from the center to the right)
-             *     - The Y axis runs from the Red Alliance Station towards the other side of the field
-             *       where the Blue Alliance Station is. (Positive is from the center, towards the BlueAlliance station)
-             *     - The Z axis runs from the floor, upwards towards the ceiling.  (Positive is above the floor)
-             *//*
-            // Set the position of the Stone Target.  Assume it's at the field origin. Rotated it to face forward, and raised it to sit on the ground correctly.
-            stoneTarget.setLocation(OpenGLMatrix
-                    .translation(0, 0, stoneZ)
-                    .multiplied(Orientation.getRotationMatrix(AxesReference.EXTRINSIC, AxesOrder.XYZ, AngleUnit.DEGREES, 90, 0, -90)));
-            // Info:  The coordinate frame for the robot looks the same as the field.
-            // The robot's "forward" direction is facing out along X axis, with the LEFT side facing out along the Y axis.
-            // Z is UP on the robot.  This equates to a bearing angle of Zero degrees.
-            //
-            // The phone starts out lying flat, with the screen facing Up and with the physical top of the phone
-            // pointing to the LEFT side of the Robot.
-            // We need to rotate the camera around it's long axis to bring the correct camera forward.
-            if (CAMERA_CHOICE == VuforiaLocalizer.CameraDirection.BACK) {
-                phoneYRotate = -90;
-            } else {
-                phoneYRotate = 90;
-            }
-            // Rotate the phone vertical about the X axis if it's in portrait mode
-            if (PHONE_IS_PORTRAIT) {
-                phoneXRotate = 90 ;
-            }
-            // Next, translate the camera lens to where it is on the robot.
-            final float CAMERA_FORWARD_DISPLACEMENT  = 6f * mmPerInch;   //sets the phone at the exact front of the robot (code correction for x axis telemetry consistently being off by an inch)
-            final float CAMERA_VERTICAL_DISPLACEMENT = 5f * mmPerInch;   // Camera is 4 Inches above ground
-            final float CAMERA_LEFT_DISPLACEMENT     = 8f * mmPerInch;   // SIDE TO SIDE
-            OpenGLMatrix robotFromCamera = OpenGLMatrix
-                    .translation(CAMERA_FORWARD_DISPLACEMENT, CAMERA_LEFT_DISPLACEMENT, CAMERA_VERTICAL_DISPLACEMENT)
-                    .multiplied(Orientation.getRotationMatrix(AxesReference.EXTRINSIC, AxesOrder.YZX, AngleUnit.DEGREES, phoneYRotate, phoneZRotate, phoneXRotate));
-            *//**  Let all the trackable listeners know where the phone is.  *//*
-            for (VuforiaTrackable trackable : allTrackables) {
-                ((VuforiaTrackableDefaultListener) trackable.getListener()).setPhoneInformation(robotFromCamera, parameters.cameraDirection);
-            }
-        }*/
     }
 
     public void updateOdometry(DcMotor encoderLeft, DcMotor encoderRight, DcMotor encoderStrafe) {
@@ -554,15 +501,17 @@ public class SteveBase {
 
     void lookForSkystones() {
         if(allianceColor.equals("RED")) {
-            for(int position = 0; position < 3; position++) { // Going from left to right
-                travelToPosition(-28.5, -4 + (8 * position), 0);
+            for(int position = 0; position < 2; position++) { // Going from left to right
+                travelToPosition(-28.5, -3 + (8 * position), 0);
+                opMode.telemetry.addData("Alpha", sensorSkystones.alpha());
+                opMode.telemetry.update();
                 if(sensorSkystones.alpha() < SKYSTONE_DETECTION_THRESHHOLD) {
                     skystonePosition = skystonePositions[position];
                     return;
                 }
             }
-            // If Skystone isn't found, just grab the left stone because it's the easiest to intake.
-            skystonePosition = "LEFT";
+            // If Skystone isn't found, we can assume it's the right stone because we haven't checked it yet.
+            skystonePosition = "RIGHT";
         } else if(allianceColor.equals("BLUE")) {
             for(int position = 2; position > -1; position--) { // Going from right to left
                 travelToPosition(28.5, 4 - (8 * position), 0);
@@ -581,7 +530,7 @@ public class SteveBase {
         if(allianceColor.equals("RED")) {
             if(skystonePosition.equals("LEFT")) {
                 double stonePosX = -39.5;
-                double stonePosY = 8;
+                double stonePosY = 11;
                 double skybridgePassingX = parkingPreference.equals("INSIDE") ? -26.5 : -5;
 
                 travelToPosition(xPosition, stonePosY, 0);
@@ -611,7 +560,7 @@ public class SteveBase {
                 motorCollectionR.setPower(0.5);
             } else if(skystonePosition.equals("CENTER")) {
                 double stonePosX = -39.5;
-                double stonePosY = 16;
+                double stonePosY = 19;
                 double skybridgePassingX = parkingPreference.equals("INSIDE") ? -26.5 : -5;
 
                 travelToPosition(xPosition, stonePosY, 0);
@@ -640,8 +589,8 @@ public class SteveBase {
                 motorCollectionL.setPower(-0.5);
                 motorCollectionR.setPower(0.5);
             } else if(skystonePosition.equals("RIGHT")) {
-                double stonePosX = -31.5;
-                double stonePosY = 20;
+                double stonePosX = -33.5;
+                double stonePosY = 23;
                 double skybridgePassingX = parkingPreference.equals("INSIDE") ? -26.5 : -5;
 
                 travelToPosition(xPosition, stonePosY, -45);
