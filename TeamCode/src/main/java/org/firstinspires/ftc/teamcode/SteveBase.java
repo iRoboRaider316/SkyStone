@@ -310,26 +310,26 @@ public class SteveBase {
         yPosition -= horizontalDistance * Math.cos(Math.toRadians(robotHeading));
 
         double robotSpeedInFPS = Math.hypot(horizontalDistance, verticalDistance) / (timerTravel.seconds() * 12);
-       /* opMode.telemetry.addData("Robot Speed in Feet per Second", robotSpeedInFPS);
-        opMode.telemetry.update();*/
+        opMode.telemetry.addData("Robot Speed in Feet per Second", robotSpeedInFPS);
+        opMode.telemetry.update();
     }
 
-    void travelToPosition(double xTarget, double yTarget, double offsetHeading, double targetAccuracy, double... powerBoost) {
+    void travelToPosition(double xTarget, double yTarget, double lockedHeading, double targetAccuracy, double... powerBoost) {
         updateOdometry(motorDriveLB, motorDriveRB, motorDriveLF);
-        lockedHeading = robotHeading + offsetHeading;
-        double headingError = lockedHeading - robotHeading;
+        double offsetHeading = lockedHeading - robotHeading;
         double xDelta = -xTarget + xPosition;
         double yDelta = yTarget - yPosition;
 
         while(((Math.abs(xDelta) > targetAccuracy ||
-              Math.abs(yDelta) > targetAccuracy) &&
+              Math.abs(yDelta) > targetAccuracy) ||
+              (Math.abs(offsetHeading) > TARGET_HEADING_ACCURACY_IN_DEGREES) &&
               ((LinearOpMode)opMode).opModeIsActive())) {
             updateOdometry(motorDriveLB, motorDriveRB, motorDriveLF);
             xDelta = -xTarget + xPosition;
             yDelta = yTarget - yPosition;
-            headingError = lockedHeading - robotHeading;
-            headingError += headingError > 90 ? -360 :
-                            headingError < -270 ? 360 : 0;
+            offsetHeading = lockedHeading - robotHeading;
+            offsetHeading += offsetHeading > 120 ? -360 :
+                             offsetHeading < -240 ? 360 : 0;
 
             double desiredSpeedLF = 0;
             double desiredSpeedLB = 0;
@@ -351,8 +351,8 @@ public class SteveBase {
                 desiredSpeedRB += (drivingPower * (Math.cos(wheelTrajectory))) * Math.sqrt(2);
             }
             // Correct for robot drifting
-            if(Math.abs(headingError) > TARGET_HEADING_ACCURACY_IN_DEGREES) {
-                double turnMod = Range.clip(Math.toRadians(headingError * 1.5), -0.35, 0.35);
+            if(Math.abs(offsetHeading) > TARGET_HEADING_ACCURACY_IN_DEGREES) {
+                double turnMod = Range.clip(Math.toRadians(offsetHeading * 1.5), -0.35, 0.35);
                 desiredSpeedLF = Range.clip(desiredSpeedLF - turnMod, -1, 1);
                 desiredSpeedLB = Range.clip(desiredSpeedLB - turnMod, -1, 1);
                 desiredSpeedRF = Range.clip(desiredSpeedRF - turnMod, -1, 1);
@@ -362,7 +362,7 @@ public class SteveBase {
             setDrivePowerMotors(desiredSpeedLF, desiredSpeedLB, desiredSpeedRF, desiredSpeedRB);
         }
         setDrivePower(0);
-        imuTurn(headingError);
+        imuTurn(offsetHeading);
     }
 
     /** Just an angle converter to use in case we ever need to turn to an absolute heading, instead
@@ -399,15 +399,6 @@ public class SteveBase {
             double TURN_POWER = DEGREES_TO_POWER * .7;*/
             double TURN_POWER = Range.clip(Math.signum(degreesToTurn) * (0.2 + (Math.abs(degreesToTurn) / 270)), -0.35, 0.35);
             setDrivePowerSides(-TURN_POWER, -TURN_POWER);
-
-            opMode.telemetry.addData("DegreesToTurn", degreesToTurn);
-            opMode.telemetry.addData("Target", targetHeading);
-            opMode.telemetry.addData("Current", currentHeading);
-            opMode.telemetry.addData("position LF", motorDriveLF.getCurrentPosition());
-            opMode.telemetry.addData("position LB", motorDriveLB.getCurrentPosition());
-            opMode.telemetry.addData("position RF", motorDriveRF.getCurrentPosition());
-            opMode.telemetry.addData("position RB", motorDriveRB.getCurrentPosition());
-            opMode.telemetry.update();
         }
         setDrivePower(0);
         sleep(200);
@@ -490,7 +481,7 @@ public class SteveBase {
     void lookForSkystones() {
         if(allianceColor.equals("RED")) {
             for(int position = 0; position < 2; position++) { // Going from left to right
-                travelToPosition(-28, -3 + (8 * position), 0, TARGET_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(-28, -3 + (8 * position), 90, TARGET_POSITION_ACCURACY_IN_INCHES);
                 opMode.telemetry.addData("Alpha", sensorSkystones.alpha());
                 opMode.telemetry.update();
                 if(sensorSkystones.alpha() < SKYSTONE_DETECTION_THRESHHOLD) {
@@ -517,182 +508,184 @@ public class SteveBase {
         lookForSkystones();
         if(allianceColor.equals("RED")) {
             if(skystonePosition.equals("LEFT")) {
-                double stonePosX = -39.5;
+                double stonePosX = -39;
                 double stonePosY = 11;
                 double skybridgePassingX = parkingPreference.equals("INSIDE") ? -26.5 : -5;
 
-                travelToPosition(xPosition, stonePosY, 0, TARGET_POSITION_ACCURACY_IN_INCHES);
-                travelToPosition(stonePosX, stonePosY, 0, TARGET_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(xPosition, stonePosY, 90, TARGET_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(stonePosX, stonePosY, 90, TARGET_POSITION_ACCURACY_IN_INCHES);
                 motorCollectionL.setPower(1);
                 motorCollectionR.setPower(-1);
-                travelToPosition(stonePosX, stonePosY - 4, 0, TARGET_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(stonePosX, stonePosY - 4, 90, TARGET_POSITION_ACCURACY_IN_INCHES);
                 sleep(200);
                 motorCollectionL.setPower(0);
                 motorCollectionR.setPower(0);
-                travelToPosition(skybridgePassingX, 16, 180, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
-                travelToPosition(skybridgePassingX, 51 ,0, TARGET_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(skybridgePassingX, 16, 270, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(skybridgePassingX, 53 ,270, TARGET_POSITION_ACCURACY_IN_INCHES);
                 motorCollectionL.setPower(-0.5);
                 motorCollectionR.setPower(0.5);
-                travelToPosition(skybridgePassingX, 16, 0, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
-                travelToPosition(stonePosX + 15, stonePosY - 24, -180, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
-                travelToPosition(stonePosX, stonePosY - 24, 0, TARGET_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(skybridgePassingX, 16, 270, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(stonePosX + 15, stonePosY - 24, 90, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(stonePosX, stonePosY - 24, 90, TARGET_POSITION_ACCURACY_IN_INCHES);
                 motorCollectionL.setPower(1);
                 motorCollectionR.setPower(-1);
-                travelToPosition(stonePosX, stonePosY - 28, 0, TARGET_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(stonePosX, stonePosY - 28, 90, TARGET_POSITION_ACCURACY_IN_INCHES);
                 sleep(200);
                 motorCollectionL.setPower(0);
                 motorCollectionR.setPower(0);
-                travelToPosition(skybridgePassingX, 16, 180, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
-                travelToPosition(skybridgePassingX, 51 ,0, TARGET_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(skybridgePassingX, 16, 270, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(skybridgePassingX, 53, 270, TARGET_POSITION_ACCURACY_IN_INCHES);
                 motorCollectionL.setPower(-0.5);
                 motorCollectionR.setPower(0.5);
             } else if(skystonePosition.equals("CENTER")) {
-                double stonePosX = -39.5;
+                double stonePosX = -39;
                 double stonePosY = 19;
                 double skybridgePassingX = parkingPreference.equals("INSIDE") ? -26.5 : -5;
 
-                travelToPosition(xPosition, stonePosY, 0, TARGET_POSITION_ACCURACY_IN_INCHES);
-                travelToPosition(stonePosX, stonePosY, 0, TARGET_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(xPosition, stonePosY, 90, TARGET_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(stonePosX, stonePosY, 90, TARGET_POSITION_ACCURACY_IN_INCHES);
                 motorCollectionL.setPower(1);
                 motorCollectionR.setPower(-1);
-                travelToPosition(stonePosX, stonePosY - 4, 0, TARGET_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(stonePosX, stonePosY - 4, 90, TARGET_POSITION_ACCURACY_IN_INCHES);
                 sleep(200);
                 motorCollectionL.setPower(0);
                 motorCollectionR.setPower(0);
-                travelToPosition(skybridgePassingX, 16, 180, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
-                travelToPosition(skybridgePassingX, 51 ,0, TARGET_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(skybridgePassingX, 16, 270, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(skybridgePassingX, 53, 270, TARGET_POSITION_ACCURACY_IN_INCHES);
                 motorCollectionL.setPower(-0.5);
                 motorCollectionR.setPower(0.5);
-                travelToPosition(skybridgePassingX, 16, 0, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
-                travelToPosition(stonePosX + 15, stonePosY - 24, -180, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
-                travelToPosition(stonePosX, stonePosY - 24, 0, TARGET_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(skybridgePassingX, 16, 270, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(stonePosX + 15, stonePosY - 24, 90, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(stonePosX, stonePosY - 24, 90, TARGET_POSITION_ACCURACY_IN_INCHES);
                 motorCollectionL.setPower(1);
                 motorCollectionR.setPower(-1);
-                travelToPosition(stonePosX, stonePosY - 28, 0, TARGET_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(stonePosX, stonePosY - 28, 90, TARGET_POSITION_ACCURACY_IN_INCHES);
                 sleep(200);
                 motorCollectionL.setPower(0);
                 motorCollectionR.setPower(0);
-                travelToPosition(skybridgePassingX, 16, 180, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
-                travelToPosition(skybridgePassingX, 51 ,0, TARGET_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(skybridgePassingX, 16, 270, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(skybridgePassingX, 53 ,270, TARGET_POSITION_ACCURACY_IN_INCHES);
                 motorCollectionL.setPower(-0.5);
                 motorCollectionR.setPower(0.5);
             } else if(skystonePosition.equals("RIGHT")) {
-                double stonePosX = -33.5;
-                double stonePosY = 23;
+                double stonePosX = -38.5;
+                double stonePosY = 27;
                 double skybridgePassingX = parkingPreference.equals("INSIDE") ? -26.5 : -5;
 
-                travelToPosition(xPosition, stonePosY, -45, TARGET_POSITION_ACCURACY_IN_INCHES);
-                travelToPosition(stonePosX, stonePosY, 0, TARGET_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(xPosition + 1, stonePosY-4, 45, TARGET_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(stonePosX + 5, stonePosY-4, 45, TARGET_POSITION_ACCURACY_IN_INCHES);
                 motorCollectionL.setPower(1);
                 motorCollectionR.setPower(-1);
-                travelToPosition(stonePosX - 6, stonePosY - 6, 0, TARGET_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(stonePosX - 1, stonePosY - 10, 55, TARGET_POSITION_ACCURACY_IN_INCHES);
                 sleep(200);
                 motorCollectionL.setPower(0);
                 motorCollectionR.setPower(0);
-                travelToPosition(skybridgePassingX, 16, 225, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
-                travelToPosition(skybridgePassingX, 51, 0, TARGET_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(skybridgePassingX, 16, 270, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(skybridgePassingX, 53, 270, TARGET_POSITION_ACCURACY_IN_INCHES);
                 motorCollectionL.setPower(-0.5);
                 motorCollectionR.setPower(0.5);
-                travelToPosition(skybridgePassingX, 16, 0, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
-                travelToPosition(stonePosX + 12, stonePosY - 24, -225, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
-                travelToPosition(stonePosX, stonePosY - 24, 0, TARGET_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(skybridgePassingX, 16, 270, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(stonePosX + 15, stonePosY - 24, 90, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(stonePosX, stonePosY - 24, 90, TARGET_POSITION_ACCURACY_IN_INCHES);
                 motorCollectionL.setPower(1);
                 motorCollectionR.setPower(-1);
-                travelToPosition(stonePosX - 6, stonePosY - 30, 0, TARGET_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(stonePosX, stonePosY - 29, 90, TARGET_POSITION_ACCURACY_IN_INCHES);
                 sleep(200);
                 motorCollectionL.setPower(0);
                 motorCollectionR.setPower(0);
-                travelToPosition(skybridgePassingX, 16, 225, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
-                travelToPosition(skybridgePassingX, 51, 0, TARGET_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(skybridgePassingX, 16, 270, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(skybridgePassingX, 53, 270, TARGET_POSITION_ACCURACY_IN_INCHES);
                 motorCollectionL.setPower(-0.5);
                 motorCollectionR.setPower(0.5);
             }
         } else if(allianceColor.equals("BLUE")) {
             if (skystonePosition.equals("LEFT")) {
-                double stonePosX = 39.5;
+                double stonePosX = -38.5;
                 double stonePosY = 0;
-                double skybridgePassingX = parkingPreference.equals("INSIDE") ? 26.5 : 5;
+                double skybridgePassingX = parkingPreference.equals("INSIDE") ? -26.5 : -5;
 
-                travelToPosition(stonePosX, stonePosY, 0, TARGET_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(xPosition + 1, stonePosY - 4, -45, TARGET_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(stonePosX + 5, stonePosY - 4, -45, TARGET_POSITION_ACCURACY_IN_INCHES);
                 motorCollectionL.setPower(1);
                 motorCollectionR.setPower(-1);
-                travelToPosition(stonePosX, stonePosY - 4, 0, TARGET_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(stonePosX - 1, stonePosY + 2, -45, TARGET_POSITION_ACCURACY_IN_INCHES);
                 sleep(200);
                 motorCollectionL.setPower(0);
                 motorCollectionR.setPower(0);
-                travelToPosition(skybridgePassingX, 10, -180, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
-                travelToPosition(skybridgePassingX, 45, 0, TARGET_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(skybridgePassingX, 10, 90, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(skybridgePassingX, 53, 90, TARGET_POSITION_ACCURACY_IN_INCHES);
                 motorCollectionL.setPower(-0.5);
                 motorCollectionR.setPower(0.5);
-                travelToPosition(skybridgePassingX, 10, 0, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
-                travelToPosition(stonePosX - 10, stonePosY - 24, 180, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
-                travelToPosition(stonePosX, stonePosY - 24, 0, TARGET_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(skybridgePassingX, 53, 90, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(stonePosX + 15, stonePosY + 24, -90, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(stonePosX, stonePosY + 24, -90, TARGET_POSITION_ACCURACY_IN_INCHES);
                 motorCollectionL.setPower(1);
                 motorCollectionR.setPower(-1);
-                travelToPosition(stonePosX, stonePosY - 28, 0, TARGET_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(stonePosX, stonePosY + 28, -90, TARGET_POSITION_ACCURACY_IN_INCHES);
                 sleep(200);
                 motorCollectionL.setPower(0);
                 motorCollectionR.setPower(0);
-                travelToPosition(skybridgePassingX, 10, -180, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
-                travelToPosition(skybridgePassingX, 45, 0, TARGET_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(skybridgePassingX, 10, 90, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(skybridgePassingX, 53, 90, TARGET_POSITION_ACCURACY_IN_INCHES);
                 motorCollectionL.setPower(-0.5);
                 motorCollectionR.setPower(0.5);
             } else if (skystonePosition.equals("CENTER")) {
-                double stonePosX = 39.5;
+                double stonePosX = -39.5;
                 double stonePosY = 8;
-                double skybridgePassingX = parkingPreference.equals("INSIDE") ? 26.5 : 5;
+                double skybridgePassingX = parkingPreference.equals("INSIDE") ? -26.5 : -5;
 
-                travelToPosition(xPosition, stonePosY, 0, TARGET_POSITION_ACCURACY_IN_INCHES);
-                travelToPosition(stonePosX, stonePosY, 0, TARGET_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(xPosition + 1, stonePosY, -90, TARGET_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(stonePosX, stonePosY, -90, TARGET_POSITION_ACCURACY_IN_INCHES);
                 motorCollectionL.setPower(1);
                 motorCollectionR.setPower(-1);
-                travelToPosition(stonePosX, stonePosY - 4, 0, TARGET_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(stonePosX, stonePosY - 4, -90, TARGET_POSITION_ACCURACY_IN_INCHES);
                 sleep(200);
                 motorCollectionL.setPower(0);
                 motorCollectionR.setPower(0);
-                travelToPosition(skybridgePassingX, 10, -180, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
-                travelToPosition(skybridgePassingX, 45, 0, TARGET_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(skybridgePassingX, 10, 90, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(skybridgePassingX, 53, 90, TARGET_POSITION_ACCURACY_IN_INCHES);
                 motorCollectionL.setPower(-0.5);
                 motorCollectionR.setPower(0.5);
-                travelToPosition(skybridgePassingX, 10, 0, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
-                travelToPosition(stonePosX - 10, stonePosY - 24, 180, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
-                travelToPosition(stonePosX, stonePosY - 24, 0, TARGET_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(skybridgePassingX, 10, 90, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(stonePosX + 15, stonePosY + 24, -90, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(stonePosX, stonePosY + 24, -90, TARGET_POSITION_ACCURACY_IN_INCHES);
                 motorCollectionL.setPower(1);
                 motorCollectionR.setPower(-1);
-                travelToPosition(stonePosX, stonePosY - 28, 0, TARGET_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(stonePosX, stonePosY + 29, -90, TARGET_POSITION_ACCURACY_IN_INCHES);
                 sleep(200);
                 motorCollectionL.setPower(0);
                 motorCollectionR.setPower(0);
-                travelToPosition(skybridgePassingX, 10, -180, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
-                travelToPosition(skybridgePassingX, 45, 0, TARGET_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(skybridgePassingX, 10, 90, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(skybridgePassingX, 45, 90, TARGET_POSITION_ACCURACY_IN_INCHES);
                 motorCollectionL.setPower(-0.5);
                 motorCollectionR.setPower(0.5);
             } else if (skystonePosition.equals("RIGHT")) {
-                double stonePosX = -31.5;
-                double stonePosY = 12;
+                double stonePosX = -39.5;
+                double stonePosY = 16;
                 double skybridgePassingX = parkingPreference.equals("INSIDE") ? 26.5 : 5;
 
-                travelToPosition(stonePosX, stonePosY, 180, TARGET_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(stonePosX, stonePosY, -90, TARGET_POSITION_ACCURACY_IN_INCHES);
                 motorCollectionL.setPower(1);
                 motorCollectionR.setPower(-1);
-                travelToPosition(stonePosX, stonePosY - 4, 0, TARGET_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(stonePosX, stonePosY - 4, -90, TARGET_POSITION_ACCURACY_IN_INCHES);
                 sleep(200);
                 motorCollectionL.setPower(0);
                 motorCollectionR.setPower(0);
-                travelToPosition(skybridgePassingX, 10, -180, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
-                travelToPosition(skybridgePassingX, 53, 0, TARGET_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(skybridgePassingX, 10, 90, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(skybridgePassingX, 53, 90, TARGET_POSITION_ACCURACY_IN_INCHES);
                 motorCollectionL.setPower(-0.5);
                 motorCollectionR.setPower(0.5);
-                travelToPosition(skybridgePassingX, 10, 0, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
-                travelToPosition(stonePosX, stonePosY - 24, 180, TARGET_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(skybridgePassingX, 10, 90, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(stonePosX + 15, stonePosY + 24, -90, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(stonePosX, stonePosY + 24, -90, TARGET_POSITION_ACCURACY_IN_INCHES);
                 motorCollectionL.setPower(1);
                 motorCollectionR.setPower(-1);
-                travelToPosition(stonePosX + 4, stonePosY - 28, 0, TARGET_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(stonePosX + 4, stonePosY + 29, -90, TARGET_POSITION_ACCURACY_IN_INCHES);
                 sleep(200);
                 motorCollectionL.setPower(0);
                 motorCollectionR.setPower(0);
-                travelToPosition(skybridgePassingX, 10, -180, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
-                travelToPosition(skybridgePassingX, 45, 0, TARGET_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(skybridgePassingX, 10, 90, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(skybridgePassingX, 53, 90, TARGET_POSITION_ACCURACY_IN_INCHES);
                 motorCollectionL.setPower(-0.5);
                 motorCollectionR.setPower(0.5);
             }
@@ -704,31 +697,31 @@ public class SteveBase {
             if(scoreSkyStones) {
                 if (allianceColor.equals("RED")) {
                     if (parkingPreference.equals("INSIDE")) {
-                        travelToPosition(-26.5, 45, 0, TARGET_POSITION_ACCURACY_IN_INCHES);
+                        travelToPosition(-26.5, 45, 270, TARGET_POSITION_ACCURACY_IN_INCHES);
                     } else if (parkingPreference.equals("OUTSIDE")) {
-                        travelToPosition(-5, 35, 0, TARGET_POSITION_ACCURACY_IN_INCHES);
+                        travelToPosition(-5, 45, 270, TARGET_POSITION_ACCURACY_IN_INCHES);
                     }
                 } else if (allianceColor.equals("BLUE")) {
                     if (parkingPreference.equals("INSIDE")) {
-                        travelToPosition(30, 35, 0, TARGET_POSITION_ACCURACY_IN_INCHES);
+                        travelToPosition(30, 45, 270, TARGET_POSITION_ACCURACY_IN_INCHES);
                     } else if (parkingPreference.equals("OUTSIDE")) {
-                        travelToPosition(5, 35, 0, TARGET_POSITION_ACCURACY_IN_INCHES);
+                        travelToPosition(5, 45, 270, TARGET_POSITION_ACCURACY_IN_INCHES);
                     }
                 }
             } else {
                 if (allianceColor.equals("RED")) {
                     if (parkingPreference.equals("INSIDE")) {
-                        travelToPosition(-20, 31, 0, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
-                        travelToPosition(-40, 31, 0, TARGET_POSITION_ACCURACY_IN_INCHES);
+                        travelToPosition(-20, 43, -90, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
+                        travelToPosition(-40, 43, -90, TARGET_POSITION_ACCURACY_IN_INCHES);
                     } else if (parkingPreference.equals("OUTSIDE")) {
-                        travelToPosition(-40, 6, 0, TARGET_POSITION_ACCURACY_IN_INCHES);
+                        travelToPosition(-40, 6, -90, TARGET_POSITION_ACCURACY_IN_INCHES);
                     }
                 } else if (allianceColor.equals("BLUE")) {
                     if (parkingPreference.equals("INSIDE")) {
-                        travelToPosition(18, 31, 0, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
-                        travelToPosition(35, 31, 0, TARGET_POSITION_ACCURACY_IN_INCHES);
+                        travelToPosition(18, 43, 90, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
+                        travelToPosition(35, 43, 90, TARGET_POSITION_ACCURACY_IN_INCHES);
                     } else if (parkingPreference.equals("OUTSIDE")) {
-                        travelToPosition(35, 5, 0, TARGET_POSITION_ACCURACY_IN_INCHES);
+                        travelToPosition(35, 5, 90, TARGET_POSITION_ACCURACY_IN_INCHES);
                     }
                 }
             }
