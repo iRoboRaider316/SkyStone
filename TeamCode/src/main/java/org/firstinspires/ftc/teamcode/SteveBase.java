@@ -89,6 +89,8 @@ public class SteveBase {
     boolean driveCollect = false;
     boolean autoTransferEnabled = true;
     int hopperState = 0;
+    int liftPositionLock;
+    boolean liftLockInPlace;
 
     double ENCODER_CPR = 360;
     double WHEEL_CURCUMFERENCE = 2.28;
@@ -646,10 +648,10 @@ public class SteveBase {
                 double stonePosX = -43;
                 double stonePosY = -13;
                 double skybridgePassingX = parkingPreference.equals("INSIDE") ? -26.5 : -5;
-                travelToPosition(xPosition + 3, stonePosY + 3, -45, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(xPosition + 1, stonePosY + 3, -45, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
                 motorCollectionL.setPower(1);
                 motorCollectionR.setPower(-1);
-                travelToPosition(stonePosX - 2, stonePosY + 8, -45, TARGET_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(stonePosX - 4, stonePosY + 8, -45, TARGET_POSITION_ACCURACY_IN_INCHES);
                 sleep(200);
                 motorCollectionL.setPower(0);
                 motorCollectionR.setPower(0);
@@ -934,11 +936,17 @@ public class SteveBase {
 
     /** Updates our lift and its fourbar arm based on the operator's joysticks.*/
     public void controlLift(double rightStick, double leftStick) { //Control lift motors and linkage servos
-        if (opMode.gamepad2.right_bumper){
-            motorLiftL.setPower(.05);
-            motorLiftR.setPower(.05);
+        if(rightStick == 0){
+            if(!liftLockInPlace){
+                liftPositionLock = motorLiftL.getCurrentPosition();
+                liftLockInPlace = true;
+            }
+            int liftPositionError = liftPositionLock - motorLiftL.getCurrentPosition();
+            motorLiftL.setPower(liftPositionError);
+            motorLiftR.setPower(liftPositionError);
         }
         else {
+            liftLockInPlace = false;
             if(Math.signum(-rightStick) == -1) { // Down
                 motorLiftL.setPower(-rightStick/2);
                 motorLiftR.setPower(-rightStick/2);
@@ -947,13 +955,12 @@ public class SteveBase {
                 motorLiftR.setPower(-rightStick);
             }
         }
-
         servoFourbarArmL.setPower(-leftStick);
         servoFourbarArmR.setPower(leftStick);
     }
 
     /** Updates whether or not the operator wants to do automatic stone grabbing.*/
-    public void decideautoTransferEnabled(){
+    public void decideAutoTransfer(){
         if (opMode.gamepad2.x && autoTransferEnabled == false){
             autoTransferEnabled = true;
         }
