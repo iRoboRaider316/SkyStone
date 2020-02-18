@@ -191,7 +191,7 @@ public class SteveBase {
     }
 
     /** ... And now we set them to run without the encoders!
-     * (NOTE: they will still return position, but there's no fancy PID control on the motors.)*/
+     * (NOTE: they will still return position, but there's no fancy PID control on the encoders.)*/
     public void runWithoutEncoders(){
         motorDriveLF.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         motorDriveLB.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
@@ -455,6 +455,7 @@ public class SteveBase {
             servoFoundationL.setPosition(0);
             servoFoundationR.setPosition(1);
             sleep(800);
+            // FOUNDATION GRASPED
             travelToPosition(15, yPosition, 0, TARGET_POSITION_ACCURACY_IN_INCHES);
             travelToPosition(15, 31, 0, TARGET_POSITION_ACCURACY_IN_INCHES);
         } else if(allianceColor.equals("BLUE")) {
@@ -480,6 +481,7 @@ public class SteveBase {
             servoFoundationL.setPosition(0);
             servoFoundationR.setPosition(1);
             sleep(800);
+            // FOUNDATION GRASPED
             travelToPosition(-15, yPosition, 0, TARGET_POSITION_ACCURACY_IN_INCHES);
             travelToPosition(-15, 31, 0, TARGET_POSITION_ACCURACY_IN_INCHES);
         }
@@ -506,6 +508,7 @@ public class SteveBase {
         servoFoundationL.setPosition(1);
         servoFoundationR.setPosition(0);
         sleep(600);
+        // FOUNDATION MOVED TO BUILDING SITE
     }
 
     /** Called in the OpMode to drive up to the stones in the loading zone and identify which one is
@@ -1066,5 +1069,4 @@ public class SteveBase {
         opMode.telemetry.addData("Foundation Grabbed?", isFoundationDetected());
         opMode.telemetry.update();
     }
-
 }
