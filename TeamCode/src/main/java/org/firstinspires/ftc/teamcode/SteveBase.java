@@ -1,7 +1,5 @@
 package org.firstinspires.ftc.teamcode;
 
-import android.graphics.Color;
-
 import com.qualcomm.hardware.bosch.BNO055IMU;
 import com.qualcomm.hardware.bosch.JustLoggingAccelerationIntegrator;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
@@ -27,8 +25,9 @@ import org.firstinspires.ftc.robotcore.internal.system.AppUtil;
 import java.io.File;
 
 public class SteveBase {
-
+    // OpMode Class
     OpMode opMode;
+    // Every single device on the robot
     DcMotor motorDriveLF;
     DcMotor motorDriveLB;
     DcMotor motorDriveRF;
@@ -48,30 +47,22 @@ public class SteveBase {
     ColorSensor sensorSkystones;
     DigitalChannel foundationTouchR;
     DigitalChannel foundationTouchL;
-
     BNO055IMU imu;                  // IMU Gyro itself
     Orientation angles;             // IMU Gyro's Orienting
+    // Stores the robot's heading at the end of autonomous to be used in teleop
     File headingFile = AppUtil.getInstance().getSettingsFile("headingFile");
-
+    // Timers
     ElapsedTime timerOpMode;
     ElapsedTime timerTravel;
-    public ElapsedTime buttonPress = new ElapsedTime();
     public ElapsedTime transferTimer = new ElapsedTime();
-
-    double angleTest[] = new double[10];
-    int count = 0;
-    double sum;
-    double correct;
-    double attemptsToGrabFoundation = 0;
-
+    // Variables used in Path Selection
     String allianceColor;
-    boolean scoreSkyStones = false;
     String parkingPreference;
+    boolean scoreSkyStones = false;
     boolean pushingFoundation = false;
-
     String skystonePosition = "";
     String[] skystonePositions = {"LEFT", "CENTER", "RIGHT"};
-
+    // Variables used in Odometry
     double leftWheelTickDelta = 0;
     double rightWheelTickDelta = 0;
     double strafeWheelTickDelta = 0;
@@ -85,13 +76,20 @@ public class SteveBase {
     double robotHeadingDelta = 0;
     double robotHeadingPrevious = 0;
     double robotSpeedInFPS;
-
+    // Variables used in Autonomous
+    double attemptsToGrabFoundation = 0;
+    // Variables used in the Teleop drive code
+    double angleTest[] = new double[10];
+    int count = 0;
+    double sum;
+    double correct;
+    // Variables used in the Operator drive code
     boolean driveCollect = false;
     boolean autoTransferEnabled = true;
     int hopperState = 0;
     int liftPositionLock;
     boolean liftLockInPlace;
-
+    // CONSTANTS
     double ENCODER_CPR = 360;
     double WHEEL_CURCUMFERENCE = 2.28;
     double COUNTS_PER_INCH = ENCODER_CPR / WHEEL_CURCUMFERENCE;
@@ -101,7 +99,7 @@ public class SteveBase {
     double WAYPOINT_POSITION_ACCURACY_IN_INCHES = 2;
     double TARGET_HEADING_ACCURACY_IN_DEGREES = 2;
     double SKYSTONE_DETECTION_THRESHHOLD = 60;
-
+    // State Machine
     private enum TransferState {
         IDLE, LOWERING_LINKAGE, GRABBING, GRABBED;
     }
@@ -308,8 +306,7 @@ public class SteveBase {
         opMode.telemetry.update();
     }
 
-    /** "I love this part :)" - Ian
-     * Intakes the motors to be used by each of the encoders, and then updates robot position based
+    /** Intakes the motors to be used by each of the encoders, and then updates robot position based
      * on how much change has occured in the motor wheels and robot heading.
      * @param encoderLeft usually uses motorDriveLB
      * @param encoderRight usually uses motorDriveRB
@@ -349,8 +346,7 @@ public class SteveBase {
         opMode.telemetry.update();
     }
 
-    /** "It's just reaping what it sows, right?"
-     * Tells the robot to travel to a certain position and heading on the field while constantly
+    /** Tells the robot to travel to a certain position and heading on the field while constantly
      * updating position and heading.
      * @param xTarget the x-value of the target position relative to starting position in inches.
      * @param yTarget the y-value of the target position relative to starting position in inches.
@@ -648,10 +644,12 @@ public class SteveBase {
                 double stonePosX = -43;
                 double stonePosY = -13;
                 double skybridgePassingX = parkingPreference.equals("INSIDE") ? -26.5 : -5;
-                travelToPosition(xPosition + 1, stonePosY + 3, -45, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(stonePosX + 4, yPosition, 90, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(stonePosX + 4, stonePosY + 6, -45, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(stonePosX + 2, yPosition, -45, TARGET_POSITION_ACCURACY_IN_INCHES);
                 motorCollectionL.setPower(1);
                 motorCollectionR.setPower(-1);
-                travelToPosition(stonePosX - 4, stonePosY + 8, -45, TARGET_POSITION_ACCURACY_IN_INCHES);
+                travelToPosition(stonePosX, stonePosY + 8, -45, TARGET_POSITION_ACCURACY_IN_INCHES);
                 sleep(200);
                 motorCollectionL.setPower(0);
                 motorCollectionR.setPower(0);
