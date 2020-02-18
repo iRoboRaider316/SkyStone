@@ -28,82 +28,81 @@ public class SteveBase {
     // OpMode Class
     OpMode opMode;
     // Every single device on the robot
-    DcMotor motorDriveLF;
-    DcMotor motorDriveLB;
-    DcMotor motorDriveRF;
-    DcMotor motorDriveRB;
-    DcMotor motorCollectionL;
-    DcMotor motorCollectionR;
-    DcMotor motorLiftL;
-    DcMotor motorLiftR;
-    Servo servoFoundationL;
-    Servo servoFoundationR;
-    Servo servoGrabber;
-    CRServo servoCapstone;
-    CRServo servoFourbarArmL;
-    CRServo servoFourbarArmR;
-    CRServo servoPark;
-    DistanceSensor sensorColor;
-    ColorSensor sensorSkystones;
-    DigitalChannel foundationTouchR;
-    DigitalChannel foundationTouchL;
-    BNO055IMU imu;                  // IMU Gyro itself
-    Orientation angles;             // IMU Gyro's Orienting
+    DcMotor motorDriveLF;            // Front-left drive motor
+    DcMotor motorDriveLB;            // Back-left drive motor
+    DcMotor motorDriveRF;            // Front-right drive motor
+    DcMotor motorDriveRB;            // Back-right drive motor
+    DcMotor motorCollectionL;        // Left collection intake motor
+    DcMotor motorCollectionR;        // Right collection intake motor
+    DcMotor motorLiftL;              // Left lift motor
+    DcMotor motorLiftR;              // Right lift motor
+    Servo servoFoundationL;          // Left foundation grabber servo
+    Servo servoFoundationR;          // Right foundation grabber servo
+    Servo servoGrabber;              // Stone's nub grabber servo
+    CRServo servoFourbarArmL;        // Left Fourbararm servo on the lift
+    CRServo servoFourbarArmR;        // Right Fourbararm servo on the lift
+    CRServo servoPark;               // Parking mechanism servo
+    DistanceSensor sensorColor;      // Hopper's proximity sensor (Detects stones in the hopper)
+    ColorSensor sensorSkystones;     // Color Sensor for finding Skystones
+    DigitalChannel foundationTouchR; // Left foundation Touch Sensor
+    DigitalChannel foundationTouchL; // Right foundation Touch Sensor
+    BNO055IMU imu;                   // IMU Gyro itself
+    Orientation angles;              // IMU Gyro's Orienting
     // Stores the robot's heading at the end of autonomous to be used in teleop
     File headingFile = AppUtil.getInstance().getSettingsFile("headingFile");
     // Timers
-    ElapsedTime timerOpMode;
-    ElapsedTime timerTravel;
-    public ElapsedTime transferTimer = new ElapsedTime();
+    ElapsedTime timerOpMode;         // Tells us how long the Opmode is running since it started.
+    ElapsedTime timerTravel;         // Used to cancel a robot turn in case we lock up.
+    ElapsedTime timerTransferState;  // Keeps track of time in our automatic transfer system
     // Variables used in Path Selection
-    String allianceColor;
-    String parkingPreference;
-    boolean scoreSkyStones = false;
-    boolean pushingFoundation = false;
-    String skystonePosition = "";
-    String[] skystonePositions = {"LEFT", "CENTER", "RIGHT"};
+    String allianceColor;                                     // What's our alliance color?
+    String parkingPreference;                                 // Where do we want to park at the end?
+    boolean scoreSkyStones = false;                           // Score Skystones?
+    boolean pushingFoundation = false;                        // Or grab the foundation?
+    String skystonePosition = "";                             // What's the skystone position?
+    String[] skystonePositions = {"LEFT", "CENTER", "RIGHT"}; // All possible stone positions
     // Variables used in Odometry
-    double leftWheelTickDelta = 0;
-    double rightWheelTickDelta = 0;
-    double strafeWheelTickDelta = 0;
-    double leftWheelTickDeltaPrevious = 0;
-    double rightWheelTickDeltaPrevious = 0;
-    double strafeWheelTickDeltaPrevious = 0;
-    double xPosition = 0;
-    double yPosition = 0;
-    double initialHeading = 90;
-    double robotHeading = 0;
-    double robotHeadingDelta = 0;
-    double robotHeadingPrevious = 0;
-    double robotSpeedInFPS;
+    double leftWheelTickDelta = 0;                            // Change in left encoder rotation
+    double rightWheelTickDelta = 0;                           // Change in right encoder rotation
+    double strafeWheelTickDelta = 0;                          // Change in strafing encoder rotation
+    double leftWheelTickDeltaPrevious = 0;                    // Last change in left encoder rotation
+    double rightWheelTickDeltaPrevious = 0;                   // Last change in right encoder rotation
+    double strafeWheelTickDeltaPrevious = 0;                  // Last change in strafing encoder rotation
+    double xPosition = 0;                                     // Robot's x-position from starting point
+    double yPosition = 0;                                     // Robot's y-position from starting point
+    double initialHeading = 90;                               // Robot's starting heading
+    double robotHeading = 0;                                  // Robot's current heading
+    double robotHeadingDelta = 0;                             // Change in robot heading
+    double robotHeadingPrevious = 0;                          // Last change in robot heading
+    double robotSpeedInFPS;                                   // Robot speed in Feet per second
     // Variables used in Autonomous
-    double attemptsToGrabFoundation = 0;
+    double attemptsToGrabFoundation = 0;         // How many times have we grabbed the foundation?
     // Variables used in the Teleop drive code
-    double angleTest[] = new double[10];
-    int count = 0;
-    double sum;
-    double correct;
-    // Variables used in the Operator drive code
-    boolean driveCollect = false;
-    boolean autoTransferEnabled = true;
-    int hopperState = 0;
-    int liftPositionLock;
-    boolean liftLockInPlace;
+    double angleTest[] = new double[10];         // Last 10 robot headings
+    int count = 0;                               // Iterates through the last 10 robot headings
+    double sum;                                  // Sum of the last 10 robot headings
+    double correct;                              // Angle correction to deal with robot drift
+    // Variables used in the Teleop operator code
+    boolean driveCollect = false;                // Does the driver have collection controls?
+    boolean autoTransferEnabled = true;          // Is the automatic transfer system enabled?
+    int hopperState = 0;                         // Is there a stone in the hopper? (1 for full)
+    int liftPositionLock;                        // Height of the lift locking position
+    boolean liftLockInPlace;                     // Is the lift lock in place?
     // CONSTANTS
-    double ENCODER_CPR = 360;
-    double WHEEL_CURCUMFERENCE = 2.28;
-    double COUNTS_PER_INCH = ENCODER_CPR / WHEEL_CURCUMFERENCE;
-    double STARTING_HEADING = 0;
-    double STRAFE_WHEEL_OFFSET_CONSTANT = 354; // Unit = DISTANCE / ANGLE
-    double TARGET_POSITION_ACCURACY_IN_INCHES = 0.5;
-    double WAYPOINT_POSITION_ACCURACY_IN_INCHES = 2;
-    double TARGET_HEADING_ACCURACY_IN_DEGREES = 2;
-    double SKYSTONE_DETECTION_THRESHHOLD = 60;
+    double ENCODER_CPR = 360;                    // Encoder CPR
+    double WHEEL_CURCUMFERENCE = 2.28;           // Wheel circumference of the encoder wheels
+    double COUNTS_PER_INCH = ENCODER_CPR / WHEEL_CURCUMFERENCE; // Calculated Counts per Inch on the encoders
+    double STARTING_HEADING = 0;                 // Robot Starting Heading
+    double STRAFE_WHEEL_OFFSET_CONSTANT = 354;   // Deals with the strafing encoder moving from robot turns
+    double TARGET_POSITION_ACCURACY_IN_INCHES = 0.5; // Accuracy constant for robot travel
+    double WAYPOINT_POSITION_ACCURACY_IN_INCHES = 2; // Accuracy constant for robot travel
+    double TARGET_HEADING_ACCURACY_IN_DEGREES = 2;   // Accuracy constant for robot turning
+    double SKYSTONE_DETECTION_THRESHHOLD = 60;       // Threshold between the skystone's and stone's light reflections
     // State Machine
-    private enum TransferState {
-        IDLE, LOWERING_LINKAGE, GRABBING, GRABBED;
+    private enum TransferState {                     // Automatic Transfer System (ATS) steps
+        IDLE, LOWERING_LINKAGE, GRABBING, GRABBED
     }
-    TransferState transfer = TransferState.IDLE;
+    TransferState transfer = TransferState.IDLE;     // What step is the ATS on?
 
     /** Sets up the Base Class within the OpMode
      * @param theOpMode the OpMode Class (usually just "this")
@@ -146,8 +145,6 @@ public class SteveBase {
         servoGrabber = opMode.hardwareMap.servo.get("servoGrabber");
         servoGrabber.setPosition(1);
 
-        servoCapstone = opMode.hardwareMap.crservo.get("servoCapstone");
-
         servoFourbarArmL = opMode.hardwareMap.crservo.get("servoFourbarArmL");
         servoFourbarArmR = opMode.hardwareMap.crservo.get("servoFourbarArmR");
 
@@ -178,6 +175,7 @@ public class SteveBase {
 
         timerOpMode = new ElapsedTime();
         timerTravel = new ElapsedTime();
+        timerTransferState = new ElapsedTime();
 
         opMode.telemetry.addLine("Initialization Succeeded!");
         opMode.telemetry.update();
@@ -560,10 +558,12 @@ public class SteveBase {
                 sleep(200);
                 motorCollectionL.setPower(0);
                 motorCollectionR.setPower(0);
+                // FIRST SKYSTONE COLLECTED
                 travelToPosition(skybridgePassingX, 16, -90, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
                 travelToPosition(skybridgePassingX, 53 ,-90, TARGET_POSITION_ACCURACY_IN_INCHES);
-                motorCollectionL.setPower(-0.5);
-                motorCollectionR.setPower(0.5);
+                motorCollectionL.setPower(-0.35);
+                motorCollectionR.setPower(0.35);
+                // FIRST SKYSTONE SCORED
                 travelToPosition(skybridgePassingX, 16, -90, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
                 travelToPosition(stonePosX + 15, stonePosY - 24, 90, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
                 travelToPosition(stonePosX, stonePosY - 24, 90, TARGET_POSITION_ACCURACY_IN_INCHES);
@@ -573,10 +573,12 @@ public class SteveBase {
                 sleep(200);
                 motorCollectionL.setPower(0);
                 motorCollectionR.setPower(0);
+                // SECOND SKYSTONE COLLECTED
                 travelToPosition(skybridgePassingX, 16, -90, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
                 travelToPosition(skybridgePassingX, 53, -90, TARGET_POSITION_ACCURACY_IN_INCHES);
-                motorCollectionL.setPower(-0.5);
-                motorCollectionR.setPower(0.5);
+                motorCollectionL.setPower(-0.35);
+                motorCollectionR.setPower(0.35);
+                // SECOND SKYSTONE SCORED
             } else if(skystonePosition.equals("CENTER")) {
                 double stonePosX = -39;
                 double stonePosY = 19;
@@ -590,10 +592,12 @@ public class SteveBase {
                 sleep(200);
                 motorCollectionL.setPower(0);
                 motorCollectionR.setPower(0);
+                // FIRST SKYSTONE COLLECTED
                 travelToPosition(skybridgePassingX, 16, -90, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
                 travelToPosition(skybridgePassingX, 53, -90, TARGET_POSITION_ACCURACY_IN_INCHES);
-                motorCollectionL.setPower(-0.5);
-                motorCollectionR.setPower(0.5);
+                motorCollectionL.setPower(-0.35);
+                motorCollectionR.setPower(0.35);
+                // FIRST SKYSTONE SCORED
                 travelToPosition(skybridgePassingX, 16, -90, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
                 travelToPosition(stonePosX + 15, stonePosY - 24, 90, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
                 travelToPosition(stonePosX, stonePosY - 24, 90, TARGET_POSITION_ACCURACY_IN_INCHES);
@@ -603,10 +607,12 @@ public class SteveBase {
                 sleep(200);
                 motorCollectionL.setPower(0);
                 motorCollectionR.setPower(0);
+                // SECOND SKYSTONE COLLECTED
                 travelToPosition(skybridgePassingX, 16, -90, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
                 travelToPosition(skybridgePassingX, 53 ,-90, TARGET_POSITION_ACCURACY_IN_INCHES);
-                motorCollectionL.setPower(-0.5);
-                motorCollectionR.setPower(0.5);
+                motorCollectionL.setPower(-0.35);
+                motorCollectionR.setPower(0.35);
+                // SECOND SKYSTONE SCORED
             } else if(skystonePosition.equals("RIGHT")) {
                 double stonePosX = -38.5;
                 double stonePosY = 27;
@@ -620,10 +626,12 @@ public class SteveBase {
                 sleep(200);
                 motorCollectionL.setPower(0);
                 motorCollectionR.setPower(0);
+                // FIRST SKYSTONE COLLECTED
                 travelToPosition(skybridgePassingX, 16, -90, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
                 travelToPosition(skybridgePassingX, 53, -90, TARGET_POSITION_ACCURACY_IN_INCHES);
-                motorCollectionL.setPower(-0.5);
-                motorCollectionR.setPower(0.5);
+                motorCollectionL.setPower(-0.35);
+                motorCollectionR.setPower(0.35);
+                // FIRST SKYSTONE SCORED
                 travelToPosition(skybridgePassingX, 16, -90, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
                 travelToPosition(stonePosX + 15, stonePosY - 24, 90, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
                 travelToPosition(stonePosX, stonePosY - 24, 90, TARGET_POSITION_ACCURACY_IN_INCHES);
@@ -633,10 +641,12 @@ public class SteveBase {
                 sleep(200);
                 motorCollectionL.setPower(0);
                 motorCollectionR.setPower(0);
+                // SECOND SKYSTONE COLLECTED
                 travelToPosition(skybridgePassingX, 16, -90, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
                 travelToPosition(skybridgePassingX, 53, -90, TARGET_POSITION_ACCURACY_IN_INCHES);
-                motorCollectionL.setPower(-0.5);
-                motorCollectionR.setPower(0.5);
+                motorCollectionL.setPower(-0.35);
+                motorCollectionR.setPower(0.35);
+                // SECOND SKYSTONE SCORED
             }
             // BLUE SIDE
         } else if(allianceColor.equals("BLUE")) {
@@ -653,10 +663,12 @@ public class SteveBase {
                 sleep(200);
                 motorCollectionL.setPower(0);
                 motorCollectionR.setPower(0);
+                // FIRST SKYSTONE COLLECTED
                 travelToPosition(skybridgePassingX, -10, 90, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
                 travelToPosition(skybridgePassingX, -40, 90, TARGET_POSITION_ACCURACY_IN_INCHES);
                 motorCollectionL.setPower(-0.35);
                 motorCollectionR.setPower(0.35);
+                // FIRST SKYSTONE SCORED
                 travelToPosition(skybridgePassingX, -10, 90, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
                 travelToPosition(stonePosX + 15, stonePosY + 24, -90, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
                 travelToPosition(stonePosX, stonePosY + 24, -90, TARGET_POSITION_ACCURACY_IN_INCHES);
@@ -666,10 +678,12 @@ public class SteveBase {
                 sleep(200);
                 motorCollectionL.setPower(0);
                 motorCollectionR.setPower(0);
+                // SECOND SKYSTONE COLLECTED
                 travelToPosition(skybridgePassingX, -10, 90, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
                 travelToPosition(skybridgePassingX, -40, 90, TARGET_POSITION_ACCURACY_IN_INCHES);
                 motorCollectionL.setPower(-0.35);
                 motorCollectionR.setPower(0.35);
+                // SECOND SKYSTONE SCORED
             } else if (skystonePosition.equals("CENTER")) {
                 double stonePosX = -44;
                 double stonePosY = -5;
@@ -683,10 +697,12 @@ public class SteveBase {
                 sleep(200);
                 motorCollectionL.setPower(0);
                 motorCollectionR.setPower(0);
+                // FIRST SKYSTONE COLLECTED
                 travelToPosition(skybridgePassingX, -10, 90, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
                 travelToPosition(skybridgePassingX, -40, 90, TARGET_POSITION_ACCURACY_IN_INCHES);
                 motorCollectionL.setPower(-0.35);
                 motorCollectionR.setPower(0.35);
+                // FIRST SKYSTONE SCORED
                 travelToPosition(skybridgePassingX, -10, 90, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
                 travelToPosition(stonePosX + 15, stonePosY + 24, -90, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
                 travelToPosition(stonePosX, stonePosY + 24, -90, TARGET_POSITION_ACCURACY_IN_INCHES);
@@ -696,10 +712,12 @@ public class SteveBase {
                 sleep(200);
                 motorCollectionL.setPower(0);
                 motorCollectionR.setPower(0);
+                // SECOND SKYSTONE COLLECTED
                 travelToPosition(skybridgePassingX, -10, 90, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
                 travelToPosition(skybridgePassingX, -40, 90, TARGET_POSITION_ACCURACY_IN_INCHES);
                 motorCollectionL.setPower(-0.35);
                 motorCollectionR.setPower(0.35);
+                // SECOND SKYSTONE SCORED
             } else if (skystonePosition.equals("RIGHT")) {
                 double stonePosX = -43;
                 double stonePosY = 4;
@@ -713,10 +731,12 @@ public class SteveBase {
                 sleep(200);
                 motorCollectionL.setPower(0);
                 motorCollectionR.setPower(0);
+                // FIRST SKYSTONE COLLECTED
                 travelToPosition(skybridgePassingX, -10, 90, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
                 travelToPosition(skybridgePassingX, -40, 90, TARGET_POSITION_ACCURACY_IN_INCHES);
                 motorCollectionL.setPower(-0.35);
                 motorCollectionR.setPower(0.35);
+                // FIRST SKYSTONE SCORED
                 travelToPosition(skybridgePassingX, -10, 90, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
                 travelToPosition(stonePosX + 15, stonePosY + 24, -90, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
                 travelToPosition(stonePosX, stonePosY + 24, -90, TARGET_POSITION_ACCURACY_IN_INCHES);
@@ -726,10 +746,12 @@ public class SteveBase {
                 sleep(200);
                 motorCollectionL.setPower(0);
                 motorCollectionR.setPower(0);
+                // SECOND SKYSTONE COLLECTED
                 travelToPosition(skybridgePassingX, -10, 90, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
                 travelToPosition(skybridgePassingX, -40, 90, TARGET_POSITION_ACCURACY_IN_INCHES);
                 motorCollectionL.setPower(-0.35);
                 motorCollectionR.setPower(0.35);
+                // SECOND SKYSTONE SCORED
             }
         }
     }
@@ -986,16 +1008,16 @@ public class SteveBase {
             case 0:
                 if (hopperState == 1 && transfer == TransferState.IDLE && autoTransferEnabled){
                     transfer = TransferState.LOWERING_LINKAGE;
-                    transferTimer.reset();
+                    timerTransferState.reset();
                 }
                 break;
             // Lower the fourbar arm on the lift.
             case 1:
                 servoFourbarArmL.setPower(-.3);
                 servoFourbarArmR.setPower(.3);
-                if (transferTimer.seconds() >= .6){ //Lower the linkage onto the stone
+                if (timerTransferState.seconds() >= .6){ //Lower the linkage onto the stone
                     transfer = TransferState.GRABBING;
-                    transferTimer.reset();
+                    timerTransferState.reset();
                 }
                 break;
             // Grab the stone
@@ -1020,19 +1042,6 @@ public class SteveBase {
         if (opMode.gamepad2.a || opMode.gamepad1.a) {
             servoGrabber.setPosition(0);
             transfer = TransferState.GRABBED; //When we have already grabbed a stone, we can't auto grab
-        }
-    }
-
-    /** Updates our capstone deployer. Will be deprecated before states.*/
-    public void controlCap(){
-        if (opMode.gamepad1.dpad_up){
-            servoCapstone.setPower(1);
-        }
-        else if (opMode.gamepad1.dpad_down){
-            servoCapstone.setPower(-1);
-        }
-        else {
-            servoCapstone.setPower(0);
         }
     }
 
