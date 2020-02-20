@@ -24,6 +24,7 @@ public class SteveTeleop extends OpMode {
         steve.controlServoClaw();
         steve.parkServo();
         steve.controlLift(gamepad2.right_stick_y, gamepad2.left_stick_y);
+        steve.resetGrabber();
         steve.decideAutoTransfer();
         steve.grabStone();
         steve.switchCollection();

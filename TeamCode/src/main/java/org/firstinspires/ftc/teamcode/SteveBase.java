@@ -39,8 +39,9 @@ public class SteveBase {
     Servo servoFoundationL;          // Left foundation grabber servo
     Servo servoFoundationR;          // Right foundation grabber servo
     Servo servoGrabber;              // Stone's nub grabber servo
-    CRServo servoFourbarArmL;        // Left Fourbararm servo on the lift
-    CRServo servoFourbarArmR;        // Right Fourbararm servo on the lift
+    CRServo servoFourbarArmL;        // Left FourbarArm servo on the lift
+    CRServo servoFourbarArmR;        // Right FourbarArm servo on the lift
+    Servo servoLimit;                // FourbarArm's gate bar
     CRServo servoPark;               // Parking mechanism servo
     DistanceSensor sensorColor;      // Hopper's proximity sensor (Detects stones in the hopper)
     ColorSensor sensorSkystones;     // Color Sensor for finding Skystones
@@ -148,6 +149,7 @@ public class SteveBase {
         servoFourbarArmL = opMode.hardwareMap.crservo.get("servoFourbarArmL");
         servoFourbarArmR = opMode.hardwareMap.crservo.get("servoFourbarArmR");
 
+        servoLimit = opMode.hardwareMap.servo.get("servoLimit");
         servoPark = opMode.hardwareMap.crservo.get("servoPark");
 
         // INITIALIZE SENSORS
@@ -432,58 +434,31 @@ public class SteveBase {
      * Behaves differently based on autonomous path.
      * */
     public void grabFoundation() {
-        if(allianceColor.equals("RED")) {
-            travelToPosition(13, 26, 0, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
-            travelToPosition(13, 31, 0, TARGET_POSITION_ACCURACY_IN_INCHES);
-            while(((LinearOpMode)opMode).opModeIsActive() && attemptsToGrabFoundation < 6 && timerOpMode.seconds() < 29) {
-                servoFoundationL.setPosition(0);
-                servoFoundationR.setPosition(1);
-                attemptsToGrabFoundation++;
-                sleep(1000);
-                travelToPosition(13, 31 + (attemptsToGrabFoundation * 2), 0, TARGET_POSITION_ACCURACY_IN_INCHES);
-                if(isFoundationDetected()) {
+        if (allianceColor.equals("RED")){
+            travelToPosition(13, 22, 90, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
+            while(!isFoundationDetected() && !((LinearOpMode)opMode).isStopRequested()){
+                setDrivePowerSides(-0.15, 0.15);
+                if(isFoundationDetected()){
                     break;
-                }
-                else if(((LinearOpMode)opMode).opModeIsActive()){
-                    servoFoundationL.setPosition(1);
-                    servoFoundationR.setPosition(0);
-                    sleep(600);
-                    attemptsToGrabFoundation++;
-                    travelToPosition(13, 31 + (attemptsToGrabFoundation * 2), 0, TARGET_POSITION_ACCURACY_IN_INCHES);
                 }
             }
             servoFoundationL.setPosition(0);
             servoFoundationR.setPosition(1);
-            sleep(800);
-            // FOUNDATION GRASPED
-            travelToPosition(15, yPosition, 0, TARGET_POSITION_ACCURACY_IN_INCHES);
-            travelToPosition(15, 31, 0, TARGET_POSITION_ACCURACY_IN_INCHES);
-        } else if(allianceColor.equals("BLUE")) {
-            travelToPosition(-13, 26, 0, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
-            travelToPosition(-13, 31, 0, TARGET_POSITION_ACCURACY_IN_INCHES);
-            while(((LinearOpMode)opMode).opModeIsActive() && attemptsToGrabFoundation < 6 && timerOpMode.seconds() < 29) {
-                servoFoundationL.setPosition(0);
-                servoFoundationR.setPosition(1);
-                sleep(1000);
-                attemptsToGrabFoundation++;
-                travelToPosition(-13, 31 + (attemptsToGrabFoundation * 2), 0, TARGET_POSITION_ACCURACY_IN_INCHES);
-                if(isFoundationDetected()) {
+            sleep(1000);
+            // FOUNDATION GRABBED
+        }
+        if (allianceColor.equals("BLUE")){
+            travelToPosition(-13, 26, 90, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
+            while(!isFoundationDetected() && !((LinearOpMode)opMode).isStopRequested()){
+                setDrivePowerSides(-0.15, 0.15);
+                if(isFoundationDetected()){
                     break;
-                }
-                else if(((LinearOpMode)opMode).opModeIsActive()){
-                    servoFoundationL.setPosition(1);
-                    servoFoundationR.setPosition(0);
-                    sleep(600);
-                    attemptsToGrabFoundation++;
-                    travelToPosition(-13, 31 + (attemptsToGrabFoundation * 2), 0, TARGET_POSITION_ACCURACY_IN_INCHES);
                 }
             }
             servoFoundationL.setPosition(0);
             servoFoundationR.setPosition(1);
-            sleep(800);
-            // FOUNDATION GRASPED
-            travelToPosition(-15, yPosition, 0, TARGET_POSITION_ACCURACY_IN_INCHES);
-            travelToPosition(-15, 31, 0, TARGET_POSITION_ACCURACY_IN_INCHES);
+            sleep(1000);
+            // FOUNDATION GRABBED
         }
     }
 
@@ -982,6 +957,26 @@ public class SteveBase {
         servoFourbarArmR.setPower(leftStick);
     }
 
+    public void resetGrabber(){ //Raise the linkage and limit servo to keep it out of the way while collecting
+        if (opMode.gamepad2.left_bumper){
+            timerTransferState.reset();
+            servoFourbarArmL.setPower(.2);
+            servoFourbarArmR.setPower(-.2);
+            servoLimit.setPosition(0);
+            if (timerTransferState.seconds() > .1){
+                servoFourbarArmL.setPower(0);
+                servoFourbarArmR.setPower(0);
+            }
+            try { Thread.sleep(500); }
+            catch (InterruptedException exc) { Thread.currentThread().interrupt(); }
+        }
+        if (opMode.gamepad2.right_bumper){
+            servoLimit.setPosition(1);
+            try { Thread.sleep(500); }
+            catch (InterruptedException exc) { Thread.currentThread().interrupt(); }
+        }
+    }
+
     /** Updates whether or not the operator wants to do automatic stone grabbing.*/
     public void decideAutoTransfer(){
         if (opMode.gamepad2.x && autoTransferEnabled == false){
@@ -1010,6 +1005,7 @@ public class SteveBase {
             // enter the state machine to automatically grab it
             case 0:
                 if (hopperState == 1 && transfer == TransferState.IDLE && autoTransferEnabled){
+                    servoLimit.setPosition(1);
                     transfer = TransferState.LOWERING_LINKAGE;
                     timerTransferState.reset();
                 }
