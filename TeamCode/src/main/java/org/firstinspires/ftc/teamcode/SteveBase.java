@@ -43,7 +43,7 @@ public class SteveBase {
     CRServo servoFourbarArmR;        // Right FourbarArm servo on the lift
     Servo servoLimit;                // FourbarArm's gate bar
     CRServo servoPark;               // Parking mechanism servo
-    DistanceSensor sensorColor;      // Hopper's proximity sensor (Detects stones in the hopper)
+    DistanceSensor sensorDistance;   // Hopper's proximity sensor (Detects stones in the hopper)
     ColorSensor sensorSkystones;     // Color Sensor for finding Skystones
     DigitalChannel foundationTouchR; // Left foundation Touch Sensor
     DigitalChannel foundationTouchL; // Right foundation Touch Sensor
@@ -87,8 +87,6 @@ public class SteveBase {
     boolean driveCollect = false;                // Does the driver have collection controls?
     boolean autoTransferEnabled = true;          // Is the automatic transfer system enabled?
     int hopperState = 0;                         // Is there a stone in the hopper? (1 for full)
-    int liftPositionLock;                        // Height of the lift locking position
-    boolean liftLockInPlace;                     // Is the lift lock in place?
     // CONSTANTS
     double ENCODER_CPR = 360;                    // Encoder CPR
     double WHEEL_CURCUMFERENCE = 2.28;           // Wheel circumference of the encoder wheels
@@ -156,7 +154,7 @@ public class SteveBase {
         opMode.telemetry.addLine("Initalizing input devices (sensors)...");
         opMode.telemetry.update();
 
-        sensorColor = opMode.hardwareMap.get(DistanceSensor.class, "sensorColor");
+        sensorDistance = opMode.hardwareMap.get(DistanceSensor.class, "sensorDistance");
         sensorSkystones = opMode.hardwareMap.get(ColorSensor.class, "sensorSkystones");
 
         foundationTouchL = opMode.hardwareMap.get(DigitalChannel.class, "foundationTouchL");
@@ -435,30 +433,36 @@ public class SteveBase {
      * */
     public void grabFoundation() {
         if (allianceColor.equals("RED")){
-            travelToPosition(13, 22, 90, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
+            travelToPosition(17, 22, 90, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
             while(!isFoundationDetected() && !((LinearOpMode)opMode).isStopRequested()){
                 setDrivePowerSides(-0.15, 0.15);
                 if(isFoundationDetected()){
                     break;
                 }
             }
+            sleep(1000);
             servoFoundationL.setPosition(0);
             servoFoundationR.setPosition(1);
             sleep(1000);
             // FOUNDATION GRABBED
+            travelToPosition(xPosition, yPosition + 2, 90, TARGET_POSITION_ACCURACY_IN_INCHES, 0.1);
+            travelToPosition(xPosition, yPosition - 2, 90, TARGET_POSITION_ACCURACY_IN_INCHES, 0.1);
         }
         if (allianceColor.equals("BLUE")){
-            travelToPosition(-13, 26, 90, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
+            travelToPosition(-17, 26, 90, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
             while(!isFoundationDetected() && !((LinearOpMode)opMode).isStopRequested()){
                 setDrivePowerSides(-0.15, 0.15);
                 if(isFoundationDetected()){
                     break;
                 }
             }
+            sleep(1000);
             servoFoundationL.setPosition(0);
             servoFoundationR.setPosition(1);
             sleep(1000);
             // FOUNDATION GRABBED
+            travelToPosition(xPosition, yPosition + 2, 90, TARGET_POSITION_ACCURACY_IN_INCHES, 0.1);
+            travelToPosition(xPosition, yPosition - 2, 90, TARGET_POSITION_ACCURACY_IN_INCHES, 0.1);
         }
     }
 
@@ -472,13 +476,13 @@ public class SteveBase {
                 updateOdometry(motorDriveLB, motorDriveRB, motorDriveLF);
                 setDrivePowerSides(1, -0.3);
             }
-            travelToPosition(3, 5, 0, TARGET_POSITION_ACCURACY_IN_INCHES, 0.1);
+            travelToPosition(3, yPosition, 0, TARGET_POSITION_ACCURACY_IN_INCHES, 0.15);
         } else if(allianceColor.equals("BLUE")){
             while (angles.firstAngle < 85 && ((LinearOpMode)opMode).opModeIsActive() && timerOpMode.seconds() < 29){
                 updateOdometry(motorDriveLB, motorDriveRB, motorDriveLF);
                 setDrivePowerSides(0.3, -1);
             }
-            travelToPosition(-4, 5, 0, TARGET_POSITION_ACCURACY_IN_INCHES, 0.1);
+            travelToPosition(-4, yPosition, 180, TARGET_POSITION_ACCURACY_IN_INCHES, 0.15);
         }
         servoFoundationL.setPosition(1);
         servoFoundationR.setPosition(0);
@@ -756,17 +760,17 @@ public class SteveBase {
             } else {
                 if (allianceColor.equals("RED")) {
                     if (parkingPreference.equals("INSIDE")) {
-                        travelToPosition(-20, 43, -90, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
-                        travelToPosition(-40, 43, -90, TARGET_POSITION_ACCURACY_IN_INCHES);
+                        travelToPosition(-20, 29, 0, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
+                        travelToPosition(-40, 29, 0, TARGET_POSITION_ACCURACY_IN_INCHES);
                     } else if (parkingPreference.equals("OUTSIDE")) {
-                        travelToPosition(-40, 6, -90, TARGET_POSITION_ACCURACY_IN_INCHES);
+                        travelToPosition(-40, 7, 0, TARGET_POSITION_ACCURACY_IN_INCHES);
                     }
                 } else if (allianceColor.equals("BLUE")) {
                     if (parkingPreference.equals("INSIDE")) {
-                        travelToPosition(18, 43, 90, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
-                        travelToPosition(35, 43, 90, TARGET_POSITION_ACCURACY_IN_INCHES);
+                        travelToPosition(20, 29, 180, WAYPOINT_POSITION_ACCURACY_IN_INCHES);
+                        travelToPosition(40, 29, 180, TARGET_POSITION_ACCURACY_IN_INCHES);
                     } else if (parkingPreference.equals("OUTSIDE")) {
-                        travelToPosition(35, 5, 90, TARGET_POSITION_ACCURACY_IN_INCHES);
+                        travelToPosition(40, 7, 180, TARGET_POSITION_ACCURACY_IN_INCHES);
                     }
                 }
             }
@@ -921,11 +925,11 @@ public class SteveBase {
 
     /** Updates our parking mechanism with the operator's dpad.*/
     public void parkServo(){ //Extend our parking mechanism
-        if (opMode.gamepad2.dpad_down) {
-            servoPark.setPower(1);
-        }
-        else if (opMode.gamepad2.dpad_up){
+        if (opMode.gamepad2.dpad_right) { //Extend while dpad_right is pressed
             servoPark.setPower(-1);
+        }
+        else if (opMode.gamepad2.dpad_left){ //Retract while dpad_left is pressed
+            servoPark.setPower(1);
         }
         else {
             servoPark.setPower(0);
@@ -934,24 +938,12 @@ public class SteveBase {
 
     /** Updates our lift and its fourbar arm based on the operator's joysticks.*/
     public void controlLift(double rightStick, double leftStick) { //Control lift motors and linkage servos
-        if(rightStick == 0){
-            if(!liftLockInPlace){
-                liftPositionLock = motorLiftL.getCurrentPosition();
-                liftLockInPlace = true;
-            }
-            int liftPositionError = liftPositionLock - motorLiftL.getCurrentPosition();
-            motorLiftL.setPower(liftPositionError);
-            motorLiftR.setPower(liftPositionError);
-        }
-        else {
-            liftLockInPlace = false;
-            if(Math.signum(-rightStick) == -1) { // Down
-                motorLiftL.setPower(-rightStick/2);
-                motorLiftR.setPower(-rightStick/2);
-            } else {                             // Up
-                motorLiftL.setPower(-rightStick);
-                motorLiftR.setPower(-rightStick);
-            }
+        if(Math.signum(-rightStick) == -1) { // Down
+            motorLiftL.setPower(-rightStick/2);
+            motorLiftR.setPower(-rightStick/2);
+        } else {                             // Up
+            motorLiftL.setPower(-rightStick);
+            motorLiftR.setPower(-rightStick);
         }
         servoFourbarArmL.setPower(-leftStick);
         servoFourbarArmR.setPower(leftStick);
@@ -977,24 +969,22 @@ public class SteveBase {
         }
     }
 
-    /** Updates whether or not the operator wants to do automatic stone grabbing.*/
-    public void decideAutoTransfer(){
+    /** Automatic stone grabbing using a "state machine" and  the proximity sensor built into the
+     * hopper*/
+    public void grabStone(){
+        //Toggle auto stone-grabbing
         if (opMode.gamepad2.x && autoTransferEnabled == false){
             autoTransferEnabled = true;
         }
         if (opMode.gamepad2.b && autoTransferEnabled == true){
             autoTransferEnabled = false;
         }
-    }
 
-    /** Automatic stone grabbing using a "state machine" and  the proximity sensor built into the
-     * hopper*/
-    public void grabStone(){
         // Updates the proximity sensor's readings.
-        if (sensorColor.getDistance(DistanceUnit.CM) >= 2){
+        if (sensorDistance.getDistance(DistanceUnit.CM) >= 2){
             hopperState = 0;
         }
-        if (sensorColor.getDistance(DistanceUnit.CM) < 2){
+        if (sensorDistance.getDistance(DistanceUnit.CM) < 2){
             hopperState = 1;
         }
         // State machines allow us to run a sequence program within an updating loop.
